@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: AlphaForge
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/alphaforge}
+    username: ${DB_USERNAME:alphaforgeUser}
+    password: ${DB_PASSWORD:alphaforgePass}
+  jpa:
+    hibernate:
+      ddl-auto: update
+
