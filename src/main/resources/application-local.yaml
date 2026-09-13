@@ -4,3 +4,14 @@ spring:
     username: ${DB_USERNAME:alphaforgeUser}
     password: ${DB_PASSWORD:alphaforgePass}
 
+alphaforge:
+  dev:
+    seed-data:
+      enabled: ${DEV_SEED_DATA_ENABLED:true}
+    user:
+      email: ${DEV_USER_EMAIL:dev@alphaforge.local}
+      display-name: ${DEV_USER_DISPLAY_NAME:Local Dev User}
+    brokerage-account:
+      broker-name: ${DEV_BROKER_NAME:Manual CSV Upload}
+      account-name: ${DEV_BROKERAGE_ACCOUNT_NAME:Default Local Account}
+      base-currency: ${DEV_BASE_CURRENCY:USD}
