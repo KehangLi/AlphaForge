@@ -1,7 +1,9 @@
 package com.likehang.alphaforge.rest.controller;
 
 import com.likehang.alphaforge.rest.dto.ApiErrorResponse;
+import com.likehang.alphaforge.service.BadRequestException;
 import com.likehang.alphaforge.service.CsvImportException;
+import com.likehang.alphaforge.service.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -19,6 +21,16 @@ public class RestExceptionHandler {
     @ExceptionHandler(CsvImportException.class)
     public ResponseEntity<ApiErrorResponse> handleCsvImportException(CsvImportException exception) {
         return buildResponse(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiErrorResponse> handleBadRequestException(BadRequestException exception) {
+        return buildResponse(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleResourceNotFoundException(ResourceNotFoundException exception) {
+        return buildResponse(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
     @ExceptionHandler({

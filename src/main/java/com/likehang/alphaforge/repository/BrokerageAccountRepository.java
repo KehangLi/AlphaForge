@@ -11,6 +11,7 @@ public interface BrokerageAccountRepository extends JpaRepository<BrokerageAccou
 
     List<BrokerageAccount> findByUser_IdOrderByCreatedAtDesc(UUID userId);
 
+    // why userId? To check do you have the access to the Info
     Optional<BrokerageAccount> findByIdAndUser_Id(UUID id, UUID userId);
 
     Optional<BrokerageAccount> findByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
