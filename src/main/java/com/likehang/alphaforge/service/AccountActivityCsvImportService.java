@@ -5,14 +5,12 @@ import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvRow;
 import com.likehang.alphaforge.model.dto.csv.CsvImportRowError;
 import com.likehang.alphaforge.model.entity.AccountActivity;
-import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
 import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.model.mapper.AccountActivityCsvMapper;
 import com.likehang.alphaforge.model.mapper.CsvRowMappingException;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
-import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.ImportBatchRepository;
 import org.apache.commons.csv.CSVFormat;
@@ -47,48 +45,46 @@ public class AccountActivityCsvImportService {
     private static final String DEFAULT_FILENAME = "account-activity.csv";
     private static final int MAX_FILENAME_LENGTH = 255;
 
-    private final AppUserRepository appUserRepository;
     private final BrokerageAccountRepository brokerageAccountRepository;
     private final ImportBatchRepository importBatchRepository;
     private final AccountActivityRepository accountActivityRepository;
     private final AccountActivityCsvMapper accountActivityCsvMapper;
-    private final String defaultUserEmail;
     private final String defaultBrokerName;
     private final String defaultAccountName;
 
     public AccountActivityCsvImportService(
-            AppUserRepository appUserRepository,
             BrokerageAccountRepository brokerageAccountRepository,
             ImportBatchRepository importBatchRepository,
             AccountActivityRepository accountActivityRepository,
             AccountActivityCsvMapper accountActivityCsvMapper,
-            @Value("${alphaforge.dev.user.email:}") String defaultUserEmail,
             @Value("${alphaforge.dev.brokerage-account.broker-name:}") String defaultBrokerName,
             @Value("${alphaforge.dev.brokerage-account.account-name:}") String defaultAccountName
     ) {
-        this.appUserRepository = appUserRepository;
         this.brokerageAccountRepository = brokerageAccountRepository;
         this.importBatchRepository = importBatchRepository;
         this.accountActivityRepository = accountActivityRepository;
         this.accountActivityCsvMapper = accountActivityCsvMapper;
-        this.defaultUserEmail = defaultUserEmail.trim();
         this.defaultBrokerName = defaultBrokerName.trim();
         this.defaultAccountName = defaultAccountName.trim();
     }
 
     @Transactional
-    public AccountActivityCsvImportResult importCsvForConfiguredDefaultAccount(MultipartFile file) {
-        BrokerageAccount brokerageAccount = findConfiguredDefaultAccount();
+    public AccountActivityCsvImportResult importCsvForConfiguredDefaultAccount(UUID userId, MultipartFile file) {
+        BrokerageAccount brokerageAccount = findConfiguredDefaultAccount(userId);
         return importCsvForBrokerageAccount(brokerageAccount, file);
     }
 
     @Transactional
-    public AccountActivityCsvImportResult importCsv(UUID brokerageAccountId, MultipartFile file) {
+    public AccountActivityCsvImportResult importCsv(UUID userId, UUID brokerageAccountId, MultipartFile file) {
+        if (userId == null) {
+            throw new CsvImportException("User id is required");
+        }
+
         if (brokerageAccountId == null) {
             throw new CsvImportException("Brokerage account id is required");
         }
 
-        BrokerageAccount brokerageAccount = brokerageAccountRepository.findById(brokerageAccountId)
+        BrokerageAccount brokerageAccount = brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId)
                 .orElseThrow(() -> new CsvImportException("Brokerage account not found: " + brokerageAccountId));
         return importCsvForBrokerageAccount(brokerageAccount, file);
     }
@@ -138,17 +134,18 @@ public class AccountActivityCsvImportService {
         return toResult(importBatch, brokerageAccountId, parseResult.errors());
     }
 
-    private BrokerageAccount findConfiguredDefaultAccount() {
-        if (defaultUserEmail.isBlank() || defaultBrokerName.isBlank() || defaultAccountName.isBlank()) {
+    private BrokerageAccount findConfiguredDefaultAccount(UUID userId) {
+        if (userId == null) {
+            throw new CsvImportException("User id is required");
+        }
+
+        if (defaultBrokerName.isBlank() || defaultAccountName.isBlank()) {
             throw new CsvImportException("Default import account is not configured");
         }
 
-        AppUser appUser = appUserRepository.findByEmailIgnoreCase(defaultUserEmail)
-                .orElseThrow(() -> new CsvImportException("Default user not found: " + defaultUserEmail));
-
         return brokerageAccountRepository
                 .findByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
-                        appUser.getId(),
+                        userId,
                         defaultBrokerName,
                         defaultAccountName
                 )

@@ -8,7 +8,6 @@ import com.likehang.alphaforge.model.entity.ImportBatch;
 import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.model.mapper.AccountActivityCsvMapper;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
-import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.ImportBatchRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +32,6 @@ import static org.mockito.Mockito.when;
 
 class AccountActivityCsvImportServiceTest {
 
-    private final AppUserRepository appUserRepository = mock(AppUserRepository.class);
     private final BrokerageAccountRepository brokerageAccountRepository = mock(BrokerageAccountRepository.class);
     private final ImportBatchRepository importBatchRepository = mock(ImportBatchRepository.class);
     private final AccountActivityRepository accountActivityRepository = mock(AccountActivityRepository.class);
@@ -49,12 +47,10 @@ class AccountActivityCsvImportServiceTest {
     @BeforeEach
     void setUp() {
         service = new AccountActivityCsvImportService(
-                appUserRepository,
                 brokerageAccountRepository,
                 importBatchRepository,
                 accountActivityRepository,
                 accountActivityCsvMapper,
-                "dev@alphaforge.local",
                 "Manual CSV Upload",
                 "Default Local Account"
         );
@@ -79,9 +75,10 @@ class AccountActivityCsvImportServiceTest {
 
     @Test
     void importsCsvForBrokerageAccount() {
-        when(brokerageAccountRepository.findById(brokerageAccountId)).thenReturn(Optional.of(brokerageAccount));
+        when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
+                .thenReturn(Optional.of(brokerageAccount));
 
-        AccountActivityCsvImportResult result = service.importCsv(brokerageAccountId, file(validCsv()));
+        AccountActivityCsvImportResult result = service.importCsv(userId, brokerageAccountId, file(validCsv()));
 
         assertThat(result.importBatchId()).isEqualTo(importBatchId);
         assertThat(result.brokerageAccountId()).isEqualTo(brokerageAccountId);
@@ -98,16 +95,13 @@ class AccountActivityCsvImportServiceTest {
 
     @Test
     void importsCsvForConfiguredDefaultAccount() {
-        AppUser appUser = new AppUser("dev@alphaforge.local", "Local Dev User");
-        appUser.setId(userId);
-        when(appUserRepository.findByEmailIgnoreCase("dev@alphaforge.local")).thenReturn(Optional.of(appUser));
         when(brokerageAccountRepository.findByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
                 userId,
                 "Manual CSV Upload",
                 "Default Local Account"
         )).thenReturn(Optional.of(brokerageAccount));
 
-        AccountActivityCsvImportResult result = service.importCsvForConfiguredDefaultAccount(file(validCsv()));
+        AccountActivityCsvImportResult result = service.importCsvForConfiguredDefaultAccount(userId, file(validCsv()));
 
         assertThat(result.status()).isEqualTo(ImportBatchStatus.COMPLETED);
         assertThat(result.successRows()).isEqualTo(2);
@@ -115,9 +109,10 @@ class AccountActivityCsvImportServiceTest {
 
     @Test
     void completesWithErrorsWhenSomeRowsAreInvalid() {
-        when(brokerageAccountRepository.findById(brokerageAccountId)).thenReturn(Optional.of(brokerageAccount));
+        when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
+                .thenReturn(Optional.of(brokerageAccount));
 
-        AccountActivityCsvImportResult result = service.importCsv(brokerageAccountId, file(csvWithInvalidRow()));
+        AccountActivityCsvImportResult result = service.importCsv(userId, brokerageAccountId, file(csvWithInvalidRow()));
 
         assertThat(result.status()).isEqualTo(ImportBatchStatus.COMPLETED_WITH_ERRORS);
         assertThat(result.totalRows()).isEqualTo(2);
@@ -135,9 +130,10 @@ class AccountActivityCsvImportServiceTest {
 
     @Test
     void failsImportWhenRequiredHeaderIsMissing() {
-        when(brokerageAccountRepository.findById(brokerageAccountId)).thenReturn(Optional.of(brokerageAccount));
+        when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
+                .thenReturn(Optional.of(brokerageAccount));
 
-        AccountActivityCsvImportResult result = service.importCsv(brokerageAccountId, file(csvWithoutTotalHeader()));
+        AccountActivityCsvImportResult result = service.importCsv(userId, brokerageAccountId, file(csvWithoutTotalHeader()));
 
         assertThat(result.status()).isEqualTo(ImportBatchStatus.FAILED);
         assertThat(result.totalRows()).isZero();
@@ -155,16 +151,31 @@ class AccountActivityCsvImportServiceTest {
 
     @Test
     void rejectsDuplicateFileForSameBrokerageAccount() {
-        when(brokerageAccountRepository.findById(brokerageAccountId)).thenReturn(Optional.of(brokerageAccount));
+        when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
+                .thenReturn(Optional.of(brokerageAccount));
         ImportBatch existingBatch = new ImportBatch(brokerageAccount, "activity.csv");
         existingBatch.setId(importBatchId);
         when(importBatchRepository.findByBrokerageAccount_IdAndFileHash(eq(brokerageAccountId), anyString()))
                 .thenReturn(Optional.of(existingBatch));
 
-        assertThatThrownBy(() -> service.importCsv(brokerageAccountId, file(validCsv())))
+        assertThatThrownBy(() -> service.importCsv(userId, brokerageAccountId, file(validCsv())))
                 .isInstanceOf(CsvImportException.class)
                 .hasMessageContaining("already imported")
                 .hasMessageContaining(importBatchId.toString());
+
+        verify(importBatchRepository, never()).save(any());
+        verify(accountActivityRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void rejectsBrokerageAccountThatIsNotOwnedByUser() {
+        when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.importCsv(userId, brokerageAccountId, file(validCsv())))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("Brokerage account not found")
+                .hasMessageContaining(brokerageAccountId.toString());
 
         verify(importBatchRepository, never()).save(any());
         verify(accountActivityRepository, never()).saveAll(any());
