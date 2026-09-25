@@ -3,6 +3,7 @@ package com.likehang.alphaforge.rest.controller;
 import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.service.AccountActivityCsvImportService;
+import com.likehang.alphaforge.service.CurrentUserService;
 import com.likehang.alphaforge.service.CsvImportException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,15 +24,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TradeUploadControllerTest {
 
     private final UUID importBatchId = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    private final UUID userId = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private final UUID brokerageAccountId = UUID.fromString("20000000-0000-0000-0000-000000000001");
 
     private FakeAccountActivityCsvImportService accountActivityCsvImportService;
+    private FakeCurrentUserService currentUserService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         accountActivityCsvImportService = new FakeAccountActivityCsvImportService();
-        TradeUploadController controller = new TradeUploadController(accountActivityCsvImportService);
+        currentUserService = new FakeCurrentUserService(userId);
+        TradeUploadController controller = new TradeUploadController(accountActivityCsvImportService, currentUserService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new RestExceptionHandler())
                 .build();
@@ -51,6 +55,7 @@ class TradeUploadControllerTest {
 
         assertThat(accountActivityCsvImportService.defaultAccountImportCalled).isTrue();
         assertThat(accountActivityCsvImportService.requestedAccountImportCalled).isFalse();
+        assertThat(accountActivityCsvImportService.requestedUserId).isEqualTo(userId);
     }
 
     @Test
@@ -67,6 +72,7 @@ class TradeUploadControllerTest {
 
         assertThat(accountActivityCsvImportService.requestedAccountImportCalled).isTrue();
         assertThat(accountActivityCsvImportService.defaultAccountImportCalled).isFalse();
+        assertThat(accountActivityCsvImportService.requestedUserId).isEqualTo(userId);
         assertThat(accountActivityCsvImportService.requestedBrokerageAccountId).isEqualTo(brokerageAccountId);
     }
 
@@ -111,15 +117,17 @@ class TradeUploadControllerTest {
         private CsvImportException exception;
         private boolean defaultAccountImportCalled;
         private boolean requestedAccountImportCalled;
+        private UUID requestedUserId;
         private UUID requestedBrokerageAccountId;
 
         private FakeAccountActivityCsvImportService() {
-            super(null, null, null, null, null, "", "", "");
+            super(null, null, null, null, "", "");
         }
 
         @Override
-        public AccountActivityCsvImportResult importCsvForConfiguredDefaultAccount(MultipartFile file) {
+        public AccountActivityCsvImportResult importCsvForConfiguredDefaultAccount(UUID userId, MultipartFile file) {
             defaultAccountImportCalled = true;
+            requestedUserId = userId;
             if (exception != null) {
                 throw exception;
             }
@@ -127,13 +135,29 @@ class TradeUploadControllerTest {
         }
 
         @Override
-        public AccountActivityCsvImportResult importCsv(UUID brokerageAccountId, MultipartFile file) {
+        public AccountActivityCsvImportResult importCsv(UUID userId, UUID brokerageAccountId, MultipartFile file) {
             requestedAccountImportCalled = true;
+            requestedUserId = userId;
             requestedBrokerageAccountId = brokerageAccountId;
             if (exception != null) {
                 throw exception;
             }
             return result;
+        }
+    }
+
+    private static class FakeCurrentUserService extends CurrentUserService {
+
+        private final UUID userId;
+
+        private FakeCurrentUserService(UUID userId) {
+            super(null, "");
+            this.userId = userId;
+        }
+
+        @Override
+        public UUID getCurrentUserId() {
+            return userId;
         }
     }
 }
