@@ -32,6 +32,12 @@ build/
 ### VS Code ###
 .vscode/
 
+### Node / Next.js ###
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
 
 ### secret, env ###
 .env

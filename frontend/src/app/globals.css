@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+html {
+  min-height: 100%;
+  background: #eef3ef;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background: #eef3ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.markdown-container table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 10px 0;
+}
+.markdown-container th, .markdown-container td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+.markdown-container th {
+  background-color: #f8fafc;
+}
+
+.markdown-container ul {
+  list-style-type: disc;
+  margin-left: 20px;
+}
+
+.bg-blue-600 .markdown-container td,
+.bg-blue-600 .markdown-container th {
+  border-color: rgba(255, 255, 255, 0.3);
+}
