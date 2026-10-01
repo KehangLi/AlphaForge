@@ -31,26 +31,27 @@ public class LocalDevDataSeeder implements CommandLineRunner {
     private final BrokerageAccountRepository brokerageAccountRepository;
     private final String userEmail;
     private final String userDisplayName;
-    private final String brokerName;
-    private final String accountName;
-    private final String baseCurrency;
+    private final SeedBrokerageAccount longTermAccount;
+    private final SeedBrokerageAccount shortTermAccount;
 
     public LocalDevDataSeeder(
             AppUserRepository appUserRepository,
             BrokerageAccountRepository brokerageAccountRepository,
             @Value("${alphaforge.dev.user.email}") String userEmail,
             @Value("${alphaforge.dev.user.display-name}") String userDisplayName,
-            @Value("${alphaforge.dev.brokerage-account.broker-name}") String brokerName,
-            @Value("${alphaforge.dev.brokerage-account.account-name}") String accountName,
-            @Value("${alphaforge.dev.brokerage-account.base-currency}") String baseCurrency
+            @Value("${alphaforge.dev.brokerage-account-long.broker-name}") String longBrokerName,
+            @Value("${alphaforge.dev.brokerage-account-long.account-name}") String longAccountName,
+            @Value("${alphaforge.dev.brokerage-account-long.base-currency}") String longBaseCurrency,
+            @Value("${alphaforge.dev.brokerage-account-short.broker-name}") String shortBrokerName,
+            @Value("${alphaforge.dev.brokerage-account-short.account-name}") String shortAccountName,
+            @Value("${alphaforge.dev.brokerage-account-short.base-currency}") String shortBaseCurrency
     ) {
         this.appUserRepository = appUserRepository;
         this.brokerageAccountRepository = brokerageAccountRepository;
         this.userEmail = userEmail.trim();
         this.userDisplayName = userDisplayName.trim();
-        this.brokerName = brokerName.trim();
-        this.accountName = accountName.trim();
-        this.baseCurrency = baseCurrency.trim().toUpperCase(Locale.ROOT);
+        this.longTermAccount = new SeedBrokerageAccount(longBrokerName, longAccountName, longBaseCurrency);
+        this.shortTermAccount = new SeedBrokerageAccount(shortBrokerName, shortAccountName, shortBaseCurrency);
     }
 
     @Override
@@ -59,21 +60,45 @@ public class LocalDevDataSeeder implements CommandLineRunner {
         AppUser appUser = appUserRepository.findByEmailIgnoreCase(userEmail)
                 .orElseGet(() -> appUserRepository.save(new AppUser(userEmail, userDisplayName)));
 
+        seedBrokerageAccount(appUser, longTermAccount);
+        seedBrokerageAccount(appUser, shortTermAccount);
+
+        log.info(
+                "Local dev seed data ready: user={}, accounts=[{} / {}, {} / {}]",
+                userEmail,
+                longTermAccount.brokerName(),
+                longTermAccount.accountName(),
+                shortTermAccount.brokerName(),
+                shortTermAccount.accountName()
+        );
+    }
+
+    private void seedBrokerageAccount(AppUser appUser, SeedBrokerageAccount account) {
         brokerageAccountRepository
                 .findByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
                         appUser.getId(),
-                        brokerName,
-                        accountName
+                        account.brokerName(),
+                        account.accountName()
                 )
                 .orElseGet(() -> brokerageAccountRepository.save(
-                        new BrokerageAccount(appUser, brokerName, accountName, baseCurrency)
+                        new BrokerageAccount(
+                                appUser,
+                                account.brokerName(),
+                                account.accountName(),
+                                account.baseCurrency()
+                        )
                 ));
+    }
 
-        log.info(
-                "Local dev seed data ready: user={}, broker={}, account={}",
-                userEmail,
-                brokerName,
-                accountName
-        );
+    private record SeedBrokerageAccount(
+            String brokerName,
+            String accountName,
+            String baseCurrency
+    ) {
+        private SeedBrokerageAccount {
+            brokerName = brokerName.trim();
+            accountName = accountName.trim();
+            baseCurrency = baseCurrency.trim().toUpperCase(Locale.ROOT);
+        }
     }
 }
