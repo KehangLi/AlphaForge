@@ -1,23 +1,31 @@
 package com.likehang.alphaforge.rest.controller;
 
+import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.model.dto.query.AccountActivityPageResponse;
 import com.likehang.alphaforge.model.dto.query.AccountActivityResponse;
+import com.likehang.alphaforge.model.entity.ImportBatchStatus;
+import com.likehang.alphaforge.service.AccountActivityCsvImportService;
 import com.likehang.alphaforge.service.AccountActivityQueryService;
+import com.likehang.alphaforge.service.CsvImportException;
 import com.likehang.alphaforge.service.CurrentUserService;
 import com.likehang.alphaforge.service.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,15 +36,18 @@ class BrokerageAccountActivityControllerTest {
     private final UUID importBatchId = UUID.fromString("30000000-0000-0000-0000-000000000001");
     private final UUID activityId = UUID.fromString("40000000-0000-0000-0000-000000000001");
 
+    private FakeAccountActivityCsvImportService accountActivityCsvImportService;
     private FakeAccountActivityQueryService accountActivityQueryService;
     private FakeCurrentUserService currentUserService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
+        accountActivityCsvImportService = new FakeAccountActivityCsvImportService();
         accountActivityQueryService = new FakeAccountActivityQueryService();
         currentUserService = new FakeCurrentUserService(userId);
         BrokerageAccountActivityController controller = new BrokerageAccountActivityController(
+                accountActivityCsvImportService,
                 accountActivityQueryService,
                 currentUserService
         );
@@ -101,6 +112,64 @@ class BrokerageAccountActivityControllerTest {
                 .andExpect(jsonPath("$.message").value("Brokerage account not found: " + brokerageAccountId));
     }
 
+    @Test
+    void uploadsCsvForBrokerageAccount() throws Exception {
+        accountActivityCsvImportService.result = successImportResult();
+
+        mockMvc.perform(multipart(
+                        "/api/brokerage-accounts/{brokerageAccountId}/account-activities/imports",
+                        brokerageAccountId
+                ).file(csvFile()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.importBatchId").value(importBatchId.toString()))
+                .andExpect(jsonPath("$.brokerageAccountId").value(brokerageAccountId.toString()))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.successRows").value(2))
+                .andExpect(jsonPath("$.failedRows").value(0));
+
+        assertThat(accountActivityCsvImportService.requestedAccountImportCalled).isTrue();
+        assertThat(accountActivityCsvImportService.requestedUserId).isEqualTo(userId);
+        assertThat(accountActivityCsvImportService.requestedBrokerageAccountId).isEqualTo(brokerageAccountId);
+    }
+
+    @Test
+    void returnsBadRequestWhenCsvImportFails() throws Exception {
+        accountActivityCsvImportService.exception = new CsvImportException("CSV file is required");
+
+        mockMvc.perform(multipart(
+                        "/api/brokerage-accounts/{brokerageAccountId}/account-activities/imports",
+                        brokerageAccountId
+                ).file(csvFile()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("CSV file is required"));
+    }
+
+    private MockMultipartFile csvFile() {
+        return new MockMultipartFile(
+                "file",
+                "activity.csv",
+                "text/csv",
+                "Action,Time (UTC),Total,Currency (Total)\nInterest on cash,2026-07-01 01:05:30+00:00,0.03,EUR\n"
+                        .getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    private AccountActivityCsvImportResult successImportResult() {
+        return new AccountActivityCsvImportResult(
+                importBatchId,
+                brokerageAccountId,
+                "activity.csv",
+                "a".repeat(64),
+                ImportBatchStatus.COMPLETED,
+                2,
+                2,
+                0,
+                List.of()
+        );
+    }
+
     private AccountActivityPageResponse result() {
         return new AccountActivityPageResponse(
                 brokerageAccountId,
@@ -138,6 +207,34 @@ class BrokerageAccountActivityControllerTest {
                 true,
                 true
         );
+    }
+
+    private static class FakeAccountActivityCsvImportService extends AccountActivityCsvImportService {
+
+        private AccountActivityCsvImportResult result;
+        private CsvImportException exception;
+        private boolean requestedAccountImportCalled;
+        private UUID requestedUserId;
+        private UUID requestedBrokerageAccountId;
+
+        private FakeAccountActivityCsvImportService() {
+            super(null, null, null, null, "", "");
+        }
+
+        @Override
+        public AccountActivityCsvImportResult importCsv(
+                UUID userId,
+                UUID brokerageAccountId,
+                MultipartFile file
+        ) {
+            requestedAccountImportCalled = true;
+            requestedUserId = userId;
+            requestedBrokerageAccountId = brokerageAccountId;
+            if (exception != null) {
+                throw exception;
+            }
+            return result;
+        }
     }
 
     private static class FakeAccountActivityQueryService extends AccountActivityQueryService {

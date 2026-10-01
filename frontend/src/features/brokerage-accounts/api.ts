@@ -37,17 +37,15 @@ export function getAccountActivities(
 
 export function importAccountActivities(
   file: File,
-  brokerageAccountId?: string,
+  brokerageAccountId: string,
 ): Promise<AccountActivityCsvImportResult> {
   const formData = new FormData();
   formData.append("file", file);
 
-  if (brokerageAccountId) {
-    formData.append("brokerageAccountId", brokerageAccountId);
-  }
+  const path = `/api/brokerage-accounts/${encodeURIComponent(brokerageAccountId)}/account-activities/imports`;
 
   return apiRequest<AccountActivityCsvImportResult>(
-    "/api/account-activities/imports",
+    path,
     {
       method: "POST",
       body: formData,
