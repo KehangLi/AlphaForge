@@ -19,3 +19,7 @@ volumes:
 # docker compose up -d    启动服务
 # docker compose down     停止并删除container 但是数据还在
 # docker compose start/stop
+
+
+# 进入数据库 docker compose exec postgres psql -U alphaforgeUser -d alphaforge
+# 清空三个表    退出\q
