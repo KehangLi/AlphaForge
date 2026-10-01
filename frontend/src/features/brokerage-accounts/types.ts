@@ -1,4 +1,5 @@
 export type BrokerageAccountSummary = {
+  id: string;
   broker: string;
   name: string;
   currency: string;
@@ -11,7 +12,8 @@ export type AccountActivity = {
   instrument: string;
   ticker: string;
   shares: string;
-  amount: string;
+  price: string;
+  total: string;
   currency: string;
 };
 

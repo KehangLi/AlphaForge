@@ -24,14 +24,15 @@ export function AccountActivitiesTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
           <thead className="bg-[#f4f7f5] text-left text-xs uppercase tracking-[0.12em] text-[#65746a]">
             <tr>
               <th className="px-5 py-4 font-semibold">Date</th>
               <th className="px-5 py-4 font-semibold">Action</th>
               <th className="px-5 py-4 font-semibold">Instrument</th>
               <th className="px-5 py-4 font-semibold">Shares</th>
-              <th className="px-5 py-4 text-right font-semibold">Amount</th>
+              <th className="px-5 py-4 text-right font-semibold">Price</th>
+              <th className="px-5 py-4 text-right font-semibold">Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e3e9e5]">
@@ -53,8 +54,13 @@ export function AccountActivitiesTable({
                   </p>
                 </td>
                 <td className="px-5 py-4 text-[#4e5d53]">{activity.shares}</td>
+                <td className="px-5 py-4 text-right text-[#4e5d53]">
+                  {activity.price === "-"
+                    ? "-"
+                    : `${activity.price} ${activity.currency}`}
+                </td>
                 <td className="px-5 py-4 text-right font-semibold">
-                  {activity.amount} {activity.currency}
+                  {activity.total} {activity.currency}
                 </td>
               </tr>
             ))}
