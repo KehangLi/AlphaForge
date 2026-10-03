@@ -36,6 +36,16 @@ export function AccountActivitiesTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e3e9e5]">
+            {activities.length === 0 ? (
+              <tr>
+                <td
+                  className="px-5 py-10 text-center text-sm font-medium text-[#65746a]"
+                  colSpan={6}
+                >
+                  No account activity loaded yet.
+                </td>
+              </tr>
+            ) : null}
             {activities.map((activity) => (
               <tr
                 className="hover:bg-[#f8faf8]"

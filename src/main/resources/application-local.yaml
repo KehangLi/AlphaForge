@@ -5,6 +5,8 @@ spring:
     password: ${DB_PASSWORD:alphaforgePass}
 
 alphaforge:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   dev:
     seed-data:
       enabled: ${DEV_SEED_DATA_ENABLED:true}

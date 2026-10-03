@@ -21,7 +21,7 @@ export function Button({
   return (
     <button
       className={[
-        "w-fit rounded-md px-4 py-2 text-sm font-semibold transition",
+        "w-fit rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
         variantClasses[variant],
         className,
       ]
