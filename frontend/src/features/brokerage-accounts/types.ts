@@ -26,7 +26,7 @@ export type BrokerageAccountListResponse = {
   id: string;
   brokerName: string;
   accountName: string;
-  accountNumberMasked: string;
+  accountNumberMasked: string | null;
   baseCurrency: string;
 };
 

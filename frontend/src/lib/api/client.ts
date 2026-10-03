@@ -15,6 +15,7 @@ export async function apiRequest<T>(
   init?: RequestInit,
 ): Promise<T> {
   const headers = new Headers(init?.headers);
+  headers.set("Accept", "application/json");
 
   if (init?.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
@@ -26,7 +27,7 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    const message = await response.text();
+    const message = await getErrorMessage(response);
     throw new ApiError(
       message || `Request failed with status ${response.status}`,
       response.status,
@@ -38,4 +39,15 @@ export async function apiRequest<T>(
   }
 
   return await response.json() as Promise<T>;
+}
+
+async function getErrorMessage(response: Response) {
+  const contentType = response.headers.get("Content-Type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const body = await response.json() as { message?: string; error?: string };
+    return body.message ?? body.error ?? "";
+  }
+
+  return await response.text();
 }
