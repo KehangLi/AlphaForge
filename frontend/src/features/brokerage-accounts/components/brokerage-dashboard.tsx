@@ -4,19 +4,25 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-import { useBrokerageAccountsQuery } from "../queries";
+import {
+  useAccountActivitiesQuery,
+  useBrokerageAccountsQuery,
+} from "../queries";
 import type { BrokerageAccountListResponse } from "../types";
 import { AccountActivitiesTable } from "./account-activities-table";
 
+const ACTIVITY_PAGE_SIZE = 10;
+
 export function BrokerageDashboard() {
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [activityPage, setActivityPage] = useState(0);
   const {
     data: accounts = [],
-    error,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
+    error: brokerageAccountsError,
+    isError: isBrokerageAccountsError,
+    isFetching: isBrokerageAccountsFetching,
+    isLoading: isBrokerageAccountsLoading,
+    refetch: refetchBrokerageAccounts,
   } = useBrokerageAccountsQuery();     //const accounts = await getBrokerageAccounts()
 
   // check if the selectedAccount exist?
@@ -30,6 +36,19 @@ export function BrokerageDashboard() {
   const selectedAccount = accounts.find(
     (account) => account.id === resolvedSelectedAccountId,
   );
+
+  const {
+    data: accountActivityPage,
+    error: accountActivitiesError,
+    isError: isAccountActivitiesError,
+    isFetching: isAccountActivitiesFetching,
+    isLoading: isAccountActivitiesLoading,
+    refetch: refetchAccountActivities,
+  } = useAccountActivitiesQuery({
+    brokerageAccountId: resolvedSelectedAccountId,
+    page: activityPage,
+    size: ACTIVITY_PAGE_SIZE,
+  });
 
   return (
     <main className="min-h-screen bg-[#eef3ef] text-[#18221d]">
@@ -58,14 +77,17 @@ export function BrokerageDashboard() {
             <div className="flex flex-col gap-2 sm:flex-row">
               <select
                 className="min-h-11 w-full rounded-md border border-[#b9c9be] bg-white px-3 text-sm font-semibold text-[#18221d] shadow-sm outline-none transition disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#7c8b81] focus:border-[#3e6f57] focus:ring-2 focus:ring-[#b9c9be]"
-                disabled={isLoading || accounts.length === 0}
+                disabled={isBrokerageAccountsLoading || accounts.length === 0}
                 id="account-select"
-                onChange={(event) => setSelectedAccountId(event.target.value)}
+                onChange={(event) => {
+                  setSelectedAccountId(event.target.value);
+                  setActivityPage(0);
+                }}
                 value={resolvedSelectedAccountId}
               >
                 {accounts.length === 0 ? (
                   <option value="">
-                    {isLoading ? "Loading accounts..." : "No accounts found"}
+                    {isBrokerageAccountsLoading ? "Loading accounts..." : "No accounts found"}
                   </option>
                 ) : null}
                 {accounts.map((account) => (
@@ -76,18 +98,18 @@ export function BrokerageDashboard() {
               </select>
               <Button
                 className="w-full justify-center sm:w-fit"
-                disabled={isFetching}
-                onClick={() => void refetch()}
+                disabled={isBrokerageAccountsFetching}
+                onClick={() => void refetchBrokerageAccounts()}
                 variant="secondary"
               >
-                {isFetching ? "Refreshing" : "Refresh"}
+                {isBrokerageAccountsFetching ? "Refreshing" : "Refresh"}
               </Button>
             </div>
 
-            {isError ? (
+            {isBrokerageAccountsError ? (
               <p className="text-sm font-medium text-[#9a3412]">
-                {error instanceof Error
-                  ? error.message
+                {brokerageAccountsError instanceof Error
+                  ? brokerageAccountsError.message
                   : "Failed to load brokerage accounts."}
               </p>
             ) : null}
@@ -102,7 +124,27 @@ export function BrokerageDashboard() {
         </section>
 
         <section className="flex-1 py-6">
-          <AccountActivitiesTable activities={[]} />
+          <AccountActivitiesTable
+            activities={accountActivityPage?.activities ?? []}
+            emptyMessage={
+              selectedAccount
+                ? "No account activity found for this account."
+                : "Select an account to load activity."
+            }
+            error={accountActivitiesError}
+            isError={isAccountActivitiesError}
+            isFetching={isAccountActivitiesFetching}
+            isLoading={isAccountActivitiesLoading}
+            isPageFirst={accountActivityPage?.first ?? true}
+            isPageLast={accountActivityPage?.last ?? true}
+            onNextPage={() => setActivityPage((currentPage) => currentPage + 1)}
+            onPreviousPage={() => setActivityPage((currentPage) => Math.max(currentPage - 1, 0))}
+            onRefresh={() => void refetchAccountActivities()}
+            page={accountActivityPage?.page}
+            size={accountActivityPage?.size}
+            totalElements={accountActivityPage?.totalElements}
+            totalPages={accountActivityPage?.totalPages}
+          />
         </section>
       </div>
     </main>
