@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +9,10 @@ import {
   useBrokerageAccountsQuery,
   useImportAccountActivitiesMutation,
 } from "../queries";
-import type { BrokerageAccountListResponse } from "../types";
+import type {
+  AccountActivityCsvImportResult,
+  BrokerageAccountListResponse,
+} from "../types";
 import { AccountActivitiesTable } from "./account-activities-table";
 
 const ACTIVITY_PAGE_SIZE = 10;
@@ -61,7 +64,7 @@ export function BrokerageDashboard() {
     fileInputRef.current?.click();
   }
 
-  function handleCsvFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
 
@@ -208,17 +211,7 @@ function formatAccountLabel(account: BrokerageAccountListResponse) {
 type UploadStatusMessageProps = {
   error: unknown;
   isError: boolean;
-  result?: {
-    status: string;
-    totalRows: number;
-    successRows: number;
-    failedRows: number;
-    errors: Array<{
-      rowNumber: number;
-      columnName: string | null;
-      message: string;
-    }>;
-  };
+  result?: AccountActivityCsvImportResult;
 };
 
 function UploadStatusMessage({

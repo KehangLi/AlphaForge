@@ -17,7 +17,6 @@ export const brokerageAccountQueryKeys = {
   list: () => [...brokerageAccountQueryKeys.all, "list"] as const,
 };
 
-// enable invalidate cache different layers
 export const accountActivityQueryKeys = {
   all: ["account-activities"] as const,
   lists: () => [...accountActivityQueryKeys.all, "list"] as const,
@@ -75,5 +74,3 @@ export function useImportAccountActivitiesMutation() {
     },
   });
 }
-
-// queryKey --> the name of this data
