@@ -1,8 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
-import { getAccountActivities, getBrokerageAccounts } from "./api";
+import {
+  getAccountActivities,
+  getBrokerageAccounts,
+  importAccountActivities,
+} from "./api";
 
 export const brokerageAccountQueryKeys = {
   all: ["brokerage-accounts"] as const,
@@ -11,11 +19,12 @@ export const brokerageAccountQueryKeys = {
 
 export const accountActivityQueryKeys = {
   all: ["account-activities"] as const,
+  lists: () => [...accountActivityQueryKeys.all, "list"] as const,
+  byAccount: (brokerageAccountId: string) =>
+    [...accountActivityQueryKeys.lists(), brokerageAccountId] as const,
   list: (brokerageAccountId: string, page: number, size: number) =>
     [
-      ...accountActivityQueryKeys.all,
-      "list",
-      brokerageAccountId,
+      ...accountActivityQueryKeys.byAccount(brokerageAccountId),
       page,
       size,
     ] as const,
@@ -46,4 +55,22 @@ export function useAccountActivitiesQuery({
   });
 }
 
-// queryKey --> the name of this data
+type ImportAccountActivitiesParams = {
+  brokerageAccountId: string;
+  file: File;
+};
+
+export function useImportAccountActivitiesMutation() {
+  const queryClient = useQueryClient();
+
+  // change the data use Mutation
+  return useMutation({
+    mutationFn: ({ brokerageAccountId, file }: ImportAccountActivitiesParams) =>
+      importAccountActivities(file, brokerageAccountId),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({
+        queryKey: accountActivityQueryKeys.byAccount(result.brokerageAccountId),
+      });
+    },
+  });
+}

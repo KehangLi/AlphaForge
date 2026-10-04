@@ -1,19 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 
 import {
   useAccountActivitiesQuery,
   useBrokerageAccountsQuery,
+  useImportAccountActivitiesMutation,
 } from "../queries";
-import type { BrokerageAccountListResponse } from "../types";
+import type {
+  AccountActivityCsvImportResult,
+  BrokerageAccountListResponse,
+} from "../types";
 import { AccountActivitiesTable } from "./account-activities-table";
 
 const ACTIVITY_PAGE_SIZE = 10;
 
 export function BrokerageDashboard() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [activityPage, setActivityPage] = useState(0);
   const {
@@ -24,6 +29,7 @@ export function BrokerageDashboard() {
     isLoading: isBrokerageAccountsLoading,
     refetch: refetchBrokerageAccounts,
   } = useBrokerageAccountsQuery();     //const accounts = await getBrokerageAccounts()
+  const importMutation = useImportAccountActivitiesMutation();
 
   // check if the selectedAccount exist?
   const resolvedSelectedAccountId = accounts.some(
@@ -50,6 +56,29 @@ export function BrokerageDashboard() {
     size: ACTIVITY_PAGE_SIZE,
   });
 
+  function handleImportButtonClick() {
+    if (!resolvedSelectedAccountId || importMutation.isPending) {
+      return;
+    }
+
+    fileInputRef.current?.click();
+  }
+
+  function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !resolvedSelectedAccountId) {
+      return;
+    }
+
+    setActivityPage(0);
+    importMutation.mutate({
+      brokerageAccountId: resolvedSelectedAccountId,
+      file,
+    });
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ef] text-[#18221d]">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-6 lg:px-10">
@@ -63,7 +92,26 @@ export function BrokerageDashboard() {
             </h1>
           </div>
 
-          <Button>Import CSV</Button>
+          <div className="flex flex-col items-start gap-2 md:items-end">
+            <Button
+              disabled={!selectedAccount || importMutation.isPending}
+              onClick={handleImportButtonClick}
+            >
+              {importMutation.isPending ? "Uploading CSV" : "Import CSV"}
+            </Button>
+            <input
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={handleCsvFileChange}
+              ref={fileInputRef}
+              type="file"
+            />
+            <UploadStatusMessage
+              error={importMutation.error}
+              isError={importMutation.isError}
+              result={importMutation.data}
+            />
+          </div>
         </header>
 
         <section className="flex flex-col gap-3 border-b border-[#cfd9d2] py-5 md:flex-row md:items-center md:justify-between">
@@ -82,6 +130,7 @@ export function BrokerageDashboard() {
                 onChange={(event) => {
                   setSelectedAccountId(event.target.value);
                   setActivityPage(0);
+                  importMutation.reset();
                 }}
                 value={resolvedSelectedAccountId}
               >
@@ -157,4 +206,46 @@ function formatAccountLabel(account: BrokerageAccountListResponse) {
     : "";
 
   return `${account.brokerName} - ${account.accountName}${accountNumber} (${account.baseCurrency})`;
+}
+
+type UploadStatusMessageProps = {
+  error: unknown;
+  isError: boolean;
+  result?: AccountActivityCsvImportResult;
+};
+
+function UploadStatusMessage({
+  error,
+  isError,
+  result,
+}: UploadStatusMessageProps) {
+  if (isError) {
+    return (
+      <p className="max-w-sm text-sm font-medium text-[#9a3412]">
+        {error instanceof Error ? error.message : "CSV upload failed."}
+      </p>
+    );
+  }
+
+  if (!result) {
+    return null;
+  }
+
+  const firstError = result.errors[0];
+
+  return (
+    <div className="max-w-sm text-sm font-medium text-[#2d654b] md:text-right">
+      <p>
+        Imported {result.successRows} of {result.totalRows} rows
+        {result.failedRows > 0 ? `, ${result.failedRows} failed` : ""}.
+      </p>
+      {firstError ? (
+        <p className="mt-1 text-[#9a3412]">
+          First error: row {firstError.rowNumber}
+          {firstError.columnName ? ` / ${firstError.columnName}` : ""} -{" "}
+          {firstError.message}
+        </p>
+      ) : null}
+    </div>
+  );
 }
