@@ -30,6 +30,10 @@ export function BrokerageDashboard() {
     refetch: refetchBrokerageAccounts,
   } = useBrokerageAccountsQuery();     //const accounts = await getBrokerageAccounts()
   const importMutation = useImportAccountActivitiesMutation();
+  const accountSelectPlaceholder = getAccountSelectPlaceholder({
+    isError: isBrokerageAccountsError,
+    isLoading: isBrokerageAccountsLoading,
+  });
 
   // check if the selectedAccount exist?
   const resolvedSelectedAccountId = accounts.some(
@@ -136,7 +140,7 @@ export function BrokerageDashboard() {
               >
                 {accounts.length === 0 ? (
                   <option value="">
-                    {isBrokerageAccountsLoading ? "Loading accounts..." : "No accounts found"}
+                    {accountSelectPlaceholder}
                   </option>
                 ) : null}
                 {accounts.map((account) => (
@@ -177,7 +181,7 @@ export function BrokerageDashboard() {
             activities={accountActivityPage?.activities ?? []}
             emptyMessage={
               selectedAccount
-                ? "No account activity found for this account."
+                ? "No activity yet. Import a CSV to populate this account."
                 : "Select an account to load activity."
             }
             error={accountActivitiesError}
@@ -198,6 +202,24 @@ export function BrokerageDashboard() {
       </div>
     </main>
   );
+}
+
+function getAccountSelectPlaceholder({
+  isError,
+  isLoading,
+}: {
+  isError: boolean;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return "Loading accounts...";
+  }
+
+  if (isError) {
+    return "Failed to load accounts";
+  }
+
+  return "No accounts found";
 }
 
 function formatAccountLabel(account: BrokerageAccountListResponse) {
