@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -50,6 +51,7 @@ export function useAccountActivitiesQuery({
 }: UseAccountActivitiesQueryParams) {
   return useQuery({
     enabled: brokerageAccountId.length > 0,
+    placeholderData: keepPreviousData,
     queryFn: () => getAccountActivities(brokerageAccountId, { page, size }),
     queryKey: accountActivityQueryKeys.list(brokerageAccountId, page, size),
   });

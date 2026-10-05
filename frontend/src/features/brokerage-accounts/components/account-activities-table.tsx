@@ -37,6 +37,8 @@ export function AccountActivitiesTable({
   totalElements,
   totalPages,
 }: AccountActivitiesTableProps) {
+  const hasActivities = activities.length > 0;
+
   return (
     <section className="overflow-hidden rounded-lg border border-[#cfd9d2] bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-[#d8e1db] p-5 md:flex-row md:items-center md:justify-between">
@@ -50,6 +52,11 @@ export function AccountActivitiesTable({
               totalElements,
             })}
           </p>
+          {isError && hasActivities ? (
+            <p className="mt-1 text-sm font-medium text-[#9a3412]">
+              {formatErrorMessage(error, "Refresh failed. Showing the last loaded rows.")}
+            </p>
+          ) : null}
         </div>
         <Button
           className="px-3"
@@ -74,7 +81,7 @@ export function AccountActivitiesTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e3e9e5]">
-            {isLoading ? (
+            {isLoading && !hasActivities ? (
               <tr>
                 <td
                   className="px-5 py-10 text-center text-sm font-medium text-[#65746a]"
@@ -84,19 +91,17 @@ export function AccountActivitiesTable({
                 </td>
               </tr>
             ) : null}
-            {isError ? (
+            {isError && !hasActivities ? (
               <tr>
                 <td
                   className="px-5 py-10 text-center text-sm font-medium text-[#9a3412]"
                   colSpan={6}
                 >
-                  {error instanceof Error
-                    ? error.message
-                    : "Failed to load account activity."}
+                  {formatErrorMessage(error, "Failed to load account activity.")}
                 </td>
               </tr>
             ) : null}
-            {!isLoading && !isError && activities.length === 0 ? (
+            {!isLoading && !isError && !hasActivities ? (
               <tr>
                 <td
                   className="px-5 py-10 text-center text-sm font-medium text-[#65746a]"
@@ -106,7 +111,7 @@ export function AccountActivitiesTable({
                 </td>
               </tr>
             ) : null}
-            {!isLoading && !isError ? activities.map((activity) => (
+            {hasActivities ? activities.map((activity) => (
               <tr
                 className="hover:bg-[#f8faf8]"
                 key={activity.id}
@@ -207,10 +212,14 @@ function formatDateTime(value: string) {
 
 function formatPageLabel(page?: number, totalPages?: number) {
   if (page === undefined || totalPages === undefined) {
-    return "Page loading";
+    return "Page loading...";
   }
 
   return `Page ${page + 1} of ${Math.max(totalPages, 1)}`;
+}
+
+function formatErrorMessage(error: unknown, fallbackMessage: string) {
+  return error instanceof Error ? error.message : fallbackMessage;
 }
 
 function formatInstrumentName(activity: AccountActivityResponse) {
