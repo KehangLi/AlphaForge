@@ -22,6 +22,12 @@ public interface ImportBatchRepository extends JpaRepository<ImportBatch, UUID> 
             Pageable pageable
     );
 
+    Optional<ImportBatch> findByBrokerageAccount_User_IdAndBrokerageAccount_IdAndId(
+            UUID userId,
+            UUID brokerageAccountId,
+            UUID id
+    );
+
     Page<ImportBatch> findByBrokerageAccount_User_IdAndStatusOrderByCreatedAtDesc(
             UUID userId,
             ImportBatchStatus status,
