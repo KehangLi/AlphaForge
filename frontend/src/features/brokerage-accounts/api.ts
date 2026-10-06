@@ -4,6 +4,7 @@ import type {
   AccountActivityCsvImportResult,
   AccountActivityPageResponse,
   BrokerageAccountListResponse,
+  ImportBatchPageResponse,
 } from "./types";
 
 export function getBrokerageAccounts(): Promise<BrokerageAccountListResponse[]> {
@@ -51,4 +52,40 @@ export function importAccountActivities(
       body: formData,
     },
   );
+}
+
+type ImportBatchQuery = {
+  page?: number;
+  size?: number;
+};
+
+export function getImportBatches(
+  brokerageAccountId: string,
+  query: ImportBatchQuery = {},
+): Promise<ImportBatchPageResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (query.page !== undefined) {
+    searchParams.set("page", String(query.page));
+  }
+
+  if (query.size !== undefined) {
+    searchParams.set("size", String(query.size));
+  }
+
+  const queryString = searchParams.toString();
+  const path = `/api/brokerage-accounts/${encodeURIComponent(brokerageAccountId)}/import-batches${queryString ? `?${queryString}` : ""}`;
+
+  return apiRequest<ImportBatchPageResponse>(path);
+}
+
+export function deleteImportBatch(
+  brokerageAccountId: string,
+  importBatchId: string,
+): Promise<void> {
+  const path = `/api/brokerage-accounts/${encodeURIComponent(brokerageAccountId)}/import-batches/${encodeURIComponent(importBatchId)}`;
+
+  return apiRequest<void>(path, {
+    method: "DELETE",
+  });
 }

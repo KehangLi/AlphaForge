@@ -93,3 +93,29 @@ export type AccountActivityCsvImportResult = {
   failedRows: number;
   errors: CsvImportRowError[];
 };
+
+export type ImportBatchResponse = {
+  id: string;
+  brokerageAccountId: string;
+  originalFilename: string;
+  fileHash: string;
+  status: ImportBatchStatus;
+  totalRows: number;
+  successRows: number;
+  failedRows: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ImportBatchPageResponse = {
+  brokerageAccountId: string;
+  importBatches: ImportBatchResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+};
