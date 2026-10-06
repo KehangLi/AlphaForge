@@ -7,27 +7,24 @@ import { Button } from "@/components/ui/button";
 import {
   useAccountActivitiesQuery,
   useBrokerageAccountsQuery,
+  useDeleteImportBatchMutation,
   useImportAccountActivitiesMutation,
+  useImportBatchesQuery,
 } from "../queries";
 import type {
   AccountActivityCsvImportResult,
   BrokerageAccountListResponse,
 } from "../types";
 import { AccountActivitiesTable } from "./account-activities-table";
-import {
-  ImportBatchHistory,
-  type ImportBatchHistoryItem,
-} from "./import-batch-history";
+import { ImportBatchHistory } from "./import-batch-history";
 
 const ACTIVITY_PAGE_SIZE = 10;
+const IMPORT_BATCH_PAGE_SIZE = 20;
 
 export function BrokerageDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [activityPage, setActivityPage] = useState(0);
-  const [deletedImportBatchIds, setDeletedImportBatchIds] = useState<string[]>(
-    [],
-  );
   const [isImportSidebarOpen, setIsImportSidebarOpen] = useState(true);
   const {
     data: accounts = [],
@@ -38,6 +35,7 @@ export function BrokerageDashboard() {
     refetch: refetchBrokerageAccounts,
   } = useBrokerageAccountsQuery();     //const accounts = await getBrokerageAccounts()
   const importMutation = useImportAccountActivitiesMutation();
+  const deleteImportBatchMutation = useDeleteImportBatchMutation();
   const accountSelectPlaceholder = getAccountSelectPlaceholder({
     isError: isBrokerageAccountsError,
     isLoading: isBrokerageAccountsLoading,
@@ -54,11 +52,6 @@ export function BrokerageDashboard() {
   const selectedAccount = accounts.find(
     (account) => account.id === resolvedSelectedAccountId,
   );
-  const importBatches = selectedAccount
-    ? getMockImportBatches(selectedAccount.id).filter(
-        (batch) => !deletedImportBatchIds.includes(batch.id),
-      )
-    : [];
 
   const {
     data: accountActivityPage,
@@ -72,6 +65,21 @@ export function BrokerageDashboard() {
     page: activityPage,
     size: ACTIVITY_PAGE_SIZE,
   });
+  const {
+    data: importBatchPage,
+    error: importBatchesError,
+    isError: isImportBatchesError,
+    isFetching: isImportBatchesFetching,
+    isLoading: isImportBatchesLoading,
+    refetch: refetchImportBatches,
+  } = useImportBatchesQuery({
+    brokerageAccountId: resolvedSelectedAccountId,
+    page: 0,
+    size: IMPORT_BATCH_PAGE_SIZE,
+  });
+  const deletingImportBatchId = deleteImportBatchMutation.isPending
+    ? deleteImportBatchMutation.variables?.importBatchId
+    : undefined;
 
   function handleImportButtonClick() {
     if (!resolvedSelectedAccountId || importMutation.isPending) {
@@ -96,8 +104,16 @@ export function BrokerageDashboard() {
     });
   }
 
-  function handleMockDeleteImportBatch(importBatchId: string) {
-    setDeletedImportBatchIds((currentIds) => [...currentIds, importBatchId]);
+  function handleDeleteImportBatch(importBatchId: string) {
+    if (!resolvedSelectedAccountId || deleteImportBatchMutation.isPending) {
+      return;
+    }
+
+    setActivityPage(0);
+    deleteImportBatchMutation.mutate({
+      brokerageAccountId: resolvedSelectedAccountId,
+      importBatchId,
+    });
   }
 
   return (
@@ -151,6 +167,7 @@ export function BrokerageDashboard() {
                 onChange={(event) => {
                   setSelectedAccountId(event.target.value);
                   setActivityPage(0);
+                  deleteImportBatchMutation.reset();
                   importMutation.reset();
                 }}
                 value={resolvedSelectedAccountId}
@@ -245,10 +262,17 @@ export function BrokerageDashboard() {
                     ? formatShortAccountLabel(selectedAccount)
                     : undefined
                 }
-                batches={importBatches}
+                batches={importBatchPage?.importBatches ?? []}
+                deletingImportBatchId={deletingImportBatchId}
+                deleteError={deleteImportBatchMutation.error}
+                error={importBatchesError}
                 isDisabled={!selectedAccount}
+                isError={isImportBatchesError}
+                isFetching={isImportBatchesFetching}
+                isLoading={isImportBatchesLoading}
                 onClose={() => setIsImportSidebarOpen(false)}
-                onDeleteBatch={handleMockDeleteImportBatch}
+                onDeleteBatch={handleDeleteImportBatch}
+                onRefresh={() => void refetchImportBatches()}
               />
             </aside>
           ) : null}
@@ -286,40 +310,6 @@ function formatAccountLabel(account: BrokerageAccountListResponse) {
 
 function formatShortAccountLabel(account: BrokerageAccountListResponse) {
   return `${account.brokerName} / ${account.accountName}`;
-}
-
-function getMockImportBatches(
-  brokerageAccountId: string,
-): ImportBatchHistoryItem[] {
-  return [
-    {
-      id: `${brokerageAccountId}-mock-import-003`,
-      originalFilename: "from_2026-07-01_to_2026-07-26.csv",
-      status: "COMPLETED",
-      totalRows: 42,
-      successRows: 42,
-      failedRows: 0,
-      createdAt: "2026-07-26T18:35:00Z",
-    },
-    {
-      id: `${brokerageAccountId}-mock-import-002`,
-      originalFilename: "trading-212-dividends-july.csv",
-      status: "COMPLETED_WITH_ERRORS",
-      totalRows: 18,
-      successRows: 16,
-      failedRows: 2,
-      createdAt: "2026-07-14T09:20:00Z",
-    },
-    {
-      id: `${brokerageAccountId}-mock-import-001`,
-      originalFilename: "first-demo-upload.csv",
-      status: "FAILED",
-      totalRows: 7,
-      successRows: 0,
-      failedRows: 7,
-      createdAt: "2026-07-03T21:10:00Z",
-    },
-  ];
 }
 
 type UploadStatusMessageProps = {

@@ -2,36 +2,41 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-import type { ImportBatchStatus } from "../types";
-
-export type ImportBatchHistoryItem = {
-  id: string;
-  originalFilename: string;
-  status: ImportBatchStatus;
-  totalRows: number;
-  successRows: number;
-  failedRows: number;
-  createdAt: string;
-};
+import type { ImportBatchResponse, ImportBatchStatus } from "../types";
 
 type ImportBatchHistoryProps = {
   accountLabel?: string;
-  batches: ImportBatchHistoryItem[];
+  batches: ImportBatchResponse[];
+  deletingImportBatchId?: string;
+  deleteError?: unknown;
+  error?: unknown;
   isDisabled?: boolean;
+  isError?: boolean;
+  isFetching?: boolean;
+  isLoading?: boolean;
   onClose?: () => void;
   onDeleteBatch: (importBatchId: string) => void;
+  onRefresh?: () => void;
 };
 
 export function ImportBatchHistory({
   accountLabel,
   batches,
+  deletingImportBatchId,
+  deleteError,
+  error,
   isDisabled = false,
+  isError = false,
+  isFetching = false,
+  isLoading = false,
   onClose,
   onDeleteBatch,
+  onRefresh,
 }: ImportBatchHistoryProps) {
   const [confirmingBatchId, setConfirmingBatchId] = useState<string | null>(
     null,
   );
+  const hasBatches = batches.length > 0;
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#cfd9d2] bg-white shadow-sm">
@@ -49,6 +54,16 @@ export function ImportBatchHistory({
             <span className="rounded-full bg-[#edf5ef] px-2.5 py-1 text-xs font-semibold text-[#2d654b]">
               {batches.length}
             </span>
+            {onRefresh ? (
+              <Button
+                className="px-3 py-1.5 text-xs"
+                disabled={isDisabled || isFetching}
+                onClick={onRefresh}
+                variant="secondary"
+              >
+                {isFetching ? "Refreshing" : "Refresh"}
+              </Button>
+            ) : null}
             {onClose ? (
               <Button
                 className="px-3 py-1.5 text-xs"
@@ -60,10 +75,32 @@ export function ImportBatchHistory({
             ) : null}
           </div>
         </div>
+        {isError && hasBatches ? (
+          <p className="mt-3 text-sm font-medium text-[#9a3412]">
+            {formatErrorMessage(error, "Refresh failed. Showing the last loaded imports.")}
+          </p>
+        ) : null}
+        {deleteError ? (
+          <p className="mt-3 text-sm font-medium text-[#9a3412]">
+            {formatErrorMessage(deleteError, "Failed to delete import batch.")}
+          </p>
+        ) : null}
       </div>
 
       <div className="divide-y divide-[#e3e9e5]">
-        {batches.length === 0 ? (
+        {isLoading && !hasBatches ? (
+          <div className="p-5 text-sm font-medium text-[#65746a]">
+            Loading import history...
+          </div>
+        ) : null}
+
+        {isError && !hasBatches ? (
+          <div className="p-5 text-sm font-medium text-[#9a3412]">
+            {formatErrorMessage(error, "Failed to load import history.")}
+          </div>
+        ) : null}
+
+        {!isLoading && !isError && !hasBatches ? (
           <div className="p-5 text-sm font-medium text-[#65746a]">
             {isDisabled
               ? "Select an account first."
@@ -73,14 +110,15 @@ export function ImportBatchHistory({
 
         {batches.map((batch) => {
           const isConfirming = confirmingBatchId === batch.id;
+          const isDeleting = deletingImportBatchId === batch.id;
 
           return (
             <article className="p-5" key={batch.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p
-                      className="truncate text-sm font-semibold text-[#18221d]"
-                      title={batch.originalFilename}
+                    className="truncate text-sm font-semibold text-[#18221d]"
+                    title={batch.originalFilename}
                   >
                     {batch.originalFilename}
                   </p>
@@ -110,6 +148,7 @@ export function ImportBatchHistory({
                   <div className="flex shrink-0 gap-2">
                     <Button
                       className="px-3 py-1.5 text-xs"
+                      disabled={isDeleting}
                       onClick={() => setConfirmingBatchId(null)}
                       variant="secondary"
                     >
@@ -117,22 +156,23 @@ export function ImportBatchHistory({
                     </Button>
                     <Button
                       className="bg-[#9a3412] px-3 py-1.5 text-xs hover:bg-[#7c2d12]"
+                      disabled={isDeleting}
                       onClick={() => {
                         onDeleteBatch(batch.id);
                         setConfirmingBatchId(null);
                       }}
                     >
-                      Delete
+                      {isDeleting ? "Deleting" : "Delete"}
                     </Button>
                   </div>
                 ) : (
                   <Button
                     className="shrink-0 px-3 py-1.5 text-xs"
-                    disabled={isDisabled}
+                    disabled={isDisabled || isDeleting}
                     onClick={() => setConfirmingBatchId(batch.id)}
                     variant="secondary"
                   >
-                    Delete
+                    {isDeleting ? "Deleting" : "Delete"}
                   </Button>
                 )}
               </div>
@@ -142,6 +182,10 @@ export function ImportBatchHistory({
       </div>
     </section>
   );
+}
+
+function formatErrorMessage(error: unknown, fallbackMessage: string) {
+  return error instanceof Error ? error.message : fallbackMessage;
 }
 
 function ImportStat({

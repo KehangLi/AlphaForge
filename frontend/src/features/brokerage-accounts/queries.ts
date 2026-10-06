@@ -8,8 +8,10 @@ import {
 } from "@tanstack/react-query";
 
 import {
+  deleteImportBatch,
   getAccountActivities,
   getBrokerageAccounts,
+  getImportBatches,
   importAccountActivities,
 } from "./api";
 
@@ -26,6 +28,19 @@ export const accountActivityQueryKeys = {
   list: (brokerageAccountId: string, page: number, size: number) =>
     [
       ...accountActivityQueryKeys.byAccount(brokerageAccountId),
+      page,
+      size,
+    ] as const,
+};
+
+export const importBatchQueryKeys = {
+  all: ["import-batches"] as const,
+  lists: () => [...importBatchQueryKeys.all, "list"] as const,
+  byAccount: (brokerageAccountId: string) =>
+    [...importBatchQueryKeys.lists(), brokerageAccountId] as const,
+  list: (brokerageAccountId: string, page: number, size: number) =>
+    [
+      ...importBatchQueryKeys.byAccount(brokerageAccountId),
       page,
       size,
     ] as const,
@@ -57,6 +72,25 @@ export function useAccountActivitiesQuery({
   });
 }
 
+type UseImportBatchesQueryParams = {
+  brokerageAccountId: string;
+  page?: number;
+  size?: number;
+};
+
+export function useImportBatchesQuery({
+  brokerageAccountId,
+  page = 0,
+  size = 20,
+}: UseImportBatchesQueryParams) {
+  return useQuery({
+    enabled: brokerageAccountId.length > 0,
+    placeholderData: keepPreviousData,
+    queryFn: () => getImportBatches(brokerageAccountId, { page, size }),
+    queryKey: importBatchQueryKeys.list(brokerageAccountId, page, size),
+  });
+}
+
 type ImportAccountActivitiesParams = {
   brokerageAccountId: string;
   file: File;
@@ -70,9 +104,40 @@ export function useImportAccountActivitiesMutation() {
     mutationFn: ({ brokerageAccountId, file }: ImportAccountActivitiesParams) =>
       importAccountActivities(file, brokerageAccountId),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({
-        queryKey: accountActivityQueryKeys.byAccount(result.brokerageAccountId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: accountActivityQueryKeys.byAccount(result.brokerageAccountId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: importBatchQueryKeys.byAccount(result.brokerageAccountId),
+        }),
+      ]);
+    },
+  });
+}
+
+type DeleteImportBatchParams = {
+  brokerageAccountId: string;
+  importBatchId: string;
+};
+
+export function useDeleteImportBatchMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ brokerageAccountId, importBatchId }: DeleteImportBatchParams) =>
+      deleteImportBatch(brokerageAccountId, importBatchId),
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: importBatchQueryKeys.byAccount(variables.brokerageAccountId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: accountActivityQueryKeys.byAccount(
+            variables.brokerageAccountId,
+          ),
+        }),
+      ]);
     },
   });
 }
