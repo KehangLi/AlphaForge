@@ -14,6 +14,10 @@ import type {
   BrokerageAccountListResponse,
 } from "../types";
 import { AccountActivitiesTable } from "./account-activities-table";
+import {
+  ImportBatchHistory,
+  type ImportBatchHistoryItem,
+} from "./import-batch-history";
 
 const ACTIVITY_PAGE_SIZE = 10;
 
@@ -21,6 +25,10 @@ export function BrokerageDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [activityPage, setActivityPage] = useState(0);
+  const [deletedImportBatchIds, setDeletedImportBatchIds] = useState<string[]>(
+    [],
+  );
+  const [isImportSidebarOpen, setIsImportSidebarOpen] = useState(true);
   const {
     data: accounts = [],
     error: brokerageAccountsError,
@@ -46,6 +54,11 @@ export function BrokerageDashboard() {
   const selectedAccount = accounts.find(
     (account) => account.id === resolvedSelectedAccountId,
   );
+  const importBatches = selectedAccount
+    ? getMockImportBatches(selectedAccount.id).filter(
+        (batch) => !deletedImportBatchIds.includes(batch.id),
+      )
+    : [];
 
   const {
     data: accountActivityPage,
@@ -81,6 +94,10 @@ export function BrokerageDashboard() {
       brokerageAccountId: resolvedSelectedAccountId,
       file,
     });
+  }
+
+  function handleMockDeleteImportBatch(importBatchId: string) {
+    setDeletedImportBatchIds((currentIds) => [...currentIds, importBatchId]);
   }
 
   return (
@@ -157,6 +174,15 @@ export function BrokerageDashboard() {
               >
                 {isBrokerageAccountsFetching ? "Refreshing" : "Refresh"}
               </Button>
+              <Button
+                className="w-full justify-center sm:w-fit"
+                onClick={() =>
+                  setIsImportSidebarOpen((isCurrentlyOpen) => !isCurrentlyOpen)
+                }
+                variant="secondary"
+              >
+                {isImportSidebarOpen ? "Hide imports" : "Show imports"}
+              </Button>
             </div>
 
             {isBrokerageAccountsError ? (
@@ -176,28 +202,56 @@ export function BrokerageDashboard() {
           </div>
         </section>
 
-        <section className="flex-1 py-6">
-          <AccountActivitiesTable
-            activities={accountActivityPage?.activities ?? []}
-            emptyMessage={
-              selectedAccount
-                ? "No activity yet. Import a CSV to populate this account."
-                : "Select an account to load activity."
-            }
-            error={accountActivitiesError}
-            isError={isAccountActivitiesError}
-            isFetching={isAccountActivitiesFetching}
-            isLoading={isAccountActivitiesLoading}
-            isPageFirst={accountActivityPage?.first ?? true}
-            isPageLast={accountActivityPage?.last ?? true}
-            onNextPage={() => setActivityPage((currentPage) => currentPage + 1)}
-            onPreviousPage={() => setActivityPage((currentPage) => Math.max(currentPage - 1, 0))}
-            onRefresh={() => void refetchAccountActivities()}
-            page={accountActivityPage?.page}
-            size={accountActivityPage?.size}
-            totalElements={accountActivityPage?.totalElements}
-            totalPages={accountActivityPage?.totalPages}
-          />
+        <section
+          className={
+            isImportSidebarOpen
+              ? "grid flex-1 gap-6 py-6 xl:grid-cols-[minmax(0,1fr)_360px]"
+              : "grid flex-1 gap-6 py-6"
+          }
+        >
+          <div className="min-w-0">
+            <AccountActivitiesTable
+              activities={accountActivityPage?.activities ?? []}
+              emptyMessage={
+                selectedAccount
+                  ? "No activity yet. Import a CSV to populate this account."
+                  : "Select an account to load activity."
+              }
+              error={accountActivitiesError}
+              isError={isAccountActivitiesError}
+              isFetching={isAccountActivitiesFetching}
+              isLoading={isAccountActivitiesLoading}
+              isPageFirst={accountActivityPage?.first ?? true}
+              isPageLast={accountActivityPage?.last ?? true}
+              onNextPage={() =>
+                setActivityPage((currentPage) => currentPage + 1)
+              }
+              onPreviousPage={() =>
+                setActivityPage((currentPage) => Math.max(currentPage - 1, 0))
+              }
+              onRefresh={() => void refetchAccountActivities()}
+              page={accountActivityPage?.page}
+              size={accountActivityPage?.size}
+              totalElements={accountActivityPage?.totalElements}
+              totalPages={accountActivityPage?.totalPages}
+            />
+          </div>
+
+          {isImportSidebarOpen ? (
+            <aside className="min-w-0 xl:sticky xl:top-6 xl:self-start">
+              <ImportBatchHistory
+                accountLabel={
+                  selectedAccount
+                    ? formatShortAccountLabel(selectedAccount)
+                    : undefined
+                }
+                batches={importBatches}
+                isDisabled={!selectedAccount}
+                onClose={() => setIsImportSidebarOpen(false)}
+                onDeleteBatch={handleMockDeleteImportBatch}
+              />
+            </aside>
+          ) : null}
         </section>
       </div>
     </main>
@@ -228,6 +282,44 @@ function formatAccountLabel(account: BrokerageAccountListResponse) {
     : "";
 
   return `${account.brokerName} - ${account.accountName}${accountNumber} (${account.baseCurrency})`;
+}
+
+function formatShortAccountLabel(account: BrokerageAccountListResponse) {
+  return `${account.brokerName} / ${account.accountName}`;
+}
+
+function getMockImportBatches(
+  brokerageAccountId: string,
+): ImportBatchHistoryItem[] {
+  return [
+    {
+      id: `${brokerageAccountId}-mock-import-003`,
+      originalFilename: "from_2026-07-01_to_2026-07-26.csv",
+      status: "COMPLETED",
+      totalRows: 42,
+      successRows: 42,
+      failedRows: 0,
+      createdAt: "2026-07-26T18:35:00Z",
+    },
+    {
+      id: `${brokerageAccountId}-mock-import-002`,
+      originalFilename: "trading-212-dividends-july.csv",
+      status: "COMPLETED_WITH_ERRORS",
+      totalRows: 18,
+      successRows: 16,
+      failedRows: 2,
+      createdAt: "2026-07-14T09:20:00Z",
+    },
+    {
+      id: `${brokerageAccountId}-mock-import-001`,
+      originalFilename: "first-demo-upload.csv",
+      status: "FAILED",
+      totalRows: 7,
+      successRows: 0,
+      failedRows: 7,
+      createdAt: "2026-07-03T21:10:00Z",
+    },
+  ];
 }
 
 type UploadStatusMessageProps = {
