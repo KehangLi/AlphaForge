@@ -15,6 +15,7 @@ import type {
   AccountActivityCsvImportResult,
   BrokerageAccountListResponse,
 } from "../types";
+import { AccountManagementDialog } from "./account-management-dialog";
 import { AccountActivitiesTable } from "./account-activities-table";
 import { ImportBatchHistory } from "./import-batch-history";
 
@@ -26,6 +27,7 @@ export function BrokerageDashboard() {
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [activityPage, setActivityPage] = useState(0);
   const [isImportSidebarOpen, setIsImportSidebarOpen] = useState(true);
+  const [isAccountManagementOpen, setIsAccountManagementOpen] = useState(false);
   const {
     data: accounts = [],
     error: brokerageAccountsError,
@@ -200,6 +202,13 @@ export function BrokerageDashboard() {
               >
                 {isImportSidebarOpen ? "Hide imports" : "Show imports"}
               </Button>
+              <Button
+                className="w-full justify-center sm:w-fit"
+                onClick={() => setIsAccountManagementOpen(true)}
+                variant="secondary"
+              >
+                Manage accounts
+              </Button>
             </div>
 
             {isBrokerageAccountsError ? (
@@ -277,6 +286,12 @@ export function BrokerageDashboard() {
             </aside>
           ) : null}
         </section>
+
+        <AccountManagementDialog
+          accounts={accounts}
+          onClose={() => setIsAccountManagementOpen(false)}
+          open={isAccountManagementOpen}
+        />
       </div>
     </main>
   );
