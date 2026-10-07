@@ -39,4 +39,6 @@ public interface ImportBatchRepository extends JpaRepository<ImportBatch, UUID> 
     Optional<ImportBatch> findByBrokerageAccount_IdAndFileHash(UUID brokerageAccountId, String fileHash);
 
     boolean existsByBrokerageAccount_IdAndFileHash(UUID brokerageAccountId, String fileHash);
+
+    long deleteByBrokerageAccount_Id(UUID brokerageAccountId);
 }
