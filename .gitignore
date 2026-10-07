@@ -37,6 +37,7 @@ node_modules/
 .next/
 out/
 *.tsbuildinfo
+frontend/next-env.d.ts
 
 
 ### secret, env ###
