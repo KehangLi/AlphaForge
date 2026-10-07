@@ -72,4 +72,6 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
     boolean existsByBrokerageAccount_IdAndRawRowHash(UUID brokerageAccountId, String rawRowHash);
 
     long deleteByImportBatch_Id(UUID importBatchId);
+
+    long deleteByBrokerageAccount_Id(UUID brokerageAccountId);
 }
