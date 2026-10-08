@@ -3,12 +3,32 @@ import { apiRequest } from "@/lib/api/client";
 import type {
   AccountActivityCsvImportResult,
   AccountActivityPageResponse,
+  BrokerageAccountCreateRequest,
   BrokerageAccountListResponse,
   ImportBatchPageResponse,
 } from "./types";
 
 export function getBrokerageAccounts(): Promise<BrokerageAccountListResponse[]> {
   return apiRequest<BrokerageAccountListResponse[]>("/api/brokerage-accounts");
+}
+
+export function createBrokerageAccount(
+  request: BrokerageAccountCreateRequest,
+): Promise<BrokerageAccountListResponse> {
+  return apiRequest<BrokerageAccountListResponse>("/api/brokerage-accounts", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export function deleteBrokerageAccount(
+  brokerageAccountId: string,
+): Promise<void> {
+  const path = `/api/brokerage-accounts/${encodeURIComponent(brokerageAccountId)}`;
+
+  return apiRequest<void>(path, {
+    method: "DELETE",
+  });
 }
 
 type AccountActivityQuery = {
