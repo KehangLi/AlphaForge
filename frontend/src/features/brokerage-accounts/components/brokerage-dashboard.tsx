@@ -118,6 +118,23 @@ export function BrokerageDashboard() {
     });
   }
 
+  function handleAccountCreated(account: BrokerageAccountListResponse) {
+    setSelectedAccountId(account.id);
+    setActivityPage(0);
+    deleteImportBatchMutation.reset();
+    importMutation.reset();
+  }
+
+  function handleAccountDeleted(accountId: string) {
+    if (accountId === resolvedSelectedAccountId) {
+      setSelectedAccountId("");
+    }
+
+    setActivityPage(0);
+    deleteImportBatchMutation.reset();
+    importMutation.reset();
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ef] text-[#18221d]">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-6 lg:px-10">
@@ -289,6 +306,8 @@ export function BrokerageDashboard() {
 
         <AccountManagementDialog
           accounts={accounts}
+          onAccountCreated={handleAccountCreated}
+          onAccountDeleted={handleAccountDeleted}
           onClose={() => setIsAccountManagementOpen(false)}
           open={isAccountManagementOpen}
         />

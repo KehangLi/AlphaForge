@@ -8,12 +8,15 @@ import {
 } from "@tanstack/react-query";
 
 import {
+  createBrokerageAccount,
+  deleteBrokerageAccount,
   deleteImportBatch,
   getAccountActivities,
   getBrokerageAccounts,
   getImportBatches,
   importAccountActivities,
 } from "./api";
+import type { BrokerageAccountListResponse } from "./types";
 
 export const brokerageAccountQueryKeys = {
   all: ["brokerage-accounts"] as const,
@@ -50,6 +53,52 @@ export function useBrokerageAccountsQuery() {
   return useQuery({
     queryFn: getBrokerageAccounts,
     queryKey: brokerageAccountQueryKeys.list(),  // so, here is ["brokerage-accounts", "list"]
+  });
+}
+
+export function useCreateBrokerageAccountMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createBrokerageAccount,
+    onSuccess: async (createdAccount) => {
+      queryClient.setQueryData<BrokerageAccountListResponse[]>(   //cache immediately change to new data
+        brokerageAccountQueryKeys.list(),
+        (currentAccounts = []) => [
+          createdAccount,
+          ...currentAccounts.filter((account) => account.id !== createdAccount.id),
+        ],
+      );
+
+      await queryClient.invalidateQueries({
+        queryKey: brokerageAccountQueryKeys.all,
+      });
+    },
+  });
+}
+
+export function useDeleteBrokerageAccountMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteBrokerageAccount,
+    onSuccess: async (_result, brokerageAccountId) => {
+      queryClient.setQueryData<BrokerageAccountListResponse[]>(
+        brokerageAccountQueryKeys.list(),
+        (currentAccounts) =>
+          currentAccounts?.filter((account) => account.id !== brokerageAccountId),
+      );
+      queryClient.removeQueries({
+        queryKey: accountActivityQueryKeys.byAccount(brokerageAccountId),
+      });
+      queryClient.removeQueries({
+        queryKey: importBatchQueryKeys.byAccount(brokerageAccountId),
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: brokerageAccountQueryKeys.all,
+      });
+    },
   });
 }
 

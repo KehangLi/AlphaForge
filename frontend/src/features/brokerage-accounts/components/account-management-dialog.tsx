@@ -1,28 +1,48 @@
-"use client";
-
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
-import type { BrokerageAccountListResponse } from "../types";
+import {
+  useCreateBrokerageAccountMutation,
+  useDeleteBrokerageAccountMutation,
+} from "../queries";
+import type {
+  BrokerageAccountCreateRequest,
+  BrokerageAccountListResponse,
+} from "../types";
 
 type AccountManagementDialogProps = {
   accounts: BrokerageAccountListResponse[];
   open: boolean;
   onClose: () => void;
+  onAccountCreated: (account: BrokerageAccountListResponse) => void;
+  onAccountDeleted: (accountId: string) => void;
 };
 
 type DialogView = "list" | "add" | "delete";
+
+const emptyAccountForm: BrokerageAccountCreateRequest = {
+  brokerName: "",
+  accountName: "",
+  accountNumberMasked: "",
+  baseCurrency: "",
+};
 
 export function AccountManagementDialog({
   accounts,
   open,
   onClose,
+  onAccountCreated,
+  onAccountDeleted,
 }: AccountManagementDialogProps) {
   const [view, setView] = useState<DialogView>("list");
   const [accountToDelete, setAccountToDelete] =
     useState<BrokerageAccountListResponse | null>(null);
+  const [accountForm, setAccountForm] =
+    useState<BrokerageAccountCreateRequest>(emptyAccountForm);
+  const createAccountMutation = useCreateBrokerageAccountMutation();
+  const deleteAccountMutation = useDeleteBrokerageAccountMutation();
 
   const dialogTitle =
     view === "add"
@@ -38,18 +58,57 @@ export function AccountManagementDialog({
         : "Manage the brokerage accounts available in the account selector.";
 
   function handleDeleteClick(account: BrokerageAccountListResponse) {
+    deleteAccountMutation.reset();
     setAccountToDelete(account);
     setView("delete");
   }
 
   function handleAddSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    createAccountMutation.mutate(
+      {
+        brokerName: accountForm.brokerName.trim(),
+        accountName: accountForm.accountName.trim(),
+        accountNumberMasked: accountForm.accountNumberMasked?.trim() || undefined,
+        baseCurrency: accountForm.baseCurrency.trim().toUpperCase(),
+      },
+      {
+        onSuccess: (createdAccount) => {
+          onAccountCreated(createdAccount);
+          handleDialogClose();
+        },
+      },
+    );
   }
 
   function handleDialogClose() {
     setView("list");
     setAccountToDelete(null);
+    setAccountForm(emptyAccountForm);
+    createAccountMutation.reset();
+    deleteAccountMutation.reset();
     onClose();
+  }
+
+  function handleOpenAdd() {
+    createAccountMutation.reset();
+    setAccountForm(emptyAccountForm);
+    setView("add");
+  }
+
+  function handleDeleteAccount() {
+    if (!accountToDelete || deleteAccountMutation.isPending) {
+      return;
+    }
+
+    const deletedAccountId = accountToDelete.id;
+    deleteAccountMutation.mutate(deletedAccountId, {
+      onSuccess: () => {
+        onAccountDeleted(deletedAccountId);
+        handleDialogClose();
+      },
+    });
   }
 
   return (
@@ -62,7 +121,7 @@ export function AccountManagementDialog({
       {view === "list" ? (
         <AccountListView
           accounts={accounts}
-          onAdd={() => setView("add")}
+          onAdd={handleOpenAdd}
           onDelete={handleDeleteClick}
         />
       ) : null}
@@ -76,8 +135,16 @@ export function AccountManagementDialog({
             <input
               className="min-h-11 w-full rounded-md border border-[#b9c9be] bg-white px-3 text-sm outline-none focus:border-[#3e6f57] focus:ring-2 focus:ring-[#b9c9be]"
               id="broker-name"
+              onChange={(event) =>
+                setAccountForm((current) => ({
+                  ...current,
+                  brokerName: event.target.value,
+                }))
+              }
               placeholder="Interactive Brokers"
+              required
               type="text"
+              value={accountForm.brokerName}
             />
           </div>
 
@@ -88,8 +155,16 @@ export function AccountManagementDialog({
             <input
               className="min-h-11 w-full rounded-md border border-[#b9c9be] bg-white px-3 text-sm outline-none focus:border-[#3e6f57] focus:ring-2 focus:ring-[#b9c9be]"
               id="account-name"
+              onChange={(event) =>
+                setAccountForm((current) => ({
+                  ...current,
+                  accountName: event.target.value,
+                }))
+              }
               placeholder="Long-term portfolio"
+              required
               type="text"
+              value={accountForm.accountName}
             />
           </div>
 
@@ -104,8 +179,15 @@ export function AccountManagementDialog({
             <input
               className="min-h-11 w-full rounded-md border border-[#b9c9be] bg-white px-3 text-sm outline-none focus:border-[#3e6f57] focus:ring-2 focus:ring-[#b9c9be]"
               id="account-number-masked"
+              onChange={(event) =>
+                setAccountForm((current) => ({
+                  ...current,
+                  accountNumberMasked: event.target.value,
+                }))
+              }
               placeholder="****1234"
               type="text"
+              value={accountForm.accountNumberMasked}
             />
           </div>
 
@@ -117,16 +199,35 @@ export function AccountManagementDialog({
               className="min-h-11 w-full rounded-md border border-[#b9c9be] bg-white px-3 text-sm uppercase outline-none focus:border-[#3e6f57] focus:ring-2 focus:ring-[#b9c9be]"
               id="base-currency"
               maxLength={3}
+              onChange={(event) =>
+                setAccountForm((current) => ({
+                  ...current,
+                  baseCurrency: event.target.value,
+                }))
+              }
               placeholder="EUR"
+              required
               type="text"
+              value={accountForm.baseCurrency}
             />
           </div>
+
+          {createAccountMutation.isError ? (
+            <p className="text-sm font-medium text-[#9a3412]">
+              {getErrorMessage(
+                createAccountMutation.error,
+                "Failed to create brokerage account.",
+              )}
+            </p>
+          ) : null}
 
           <div className="flex justify-end gap-2 border-t border-[#d8e1db] pt-4">
             <Button onClick={() => setView("list")} variant="secondary">
               Cancel
             </Button>
-            <Button type="submit">Save account</Button>
+            <Button disabled={createAccountMutation.isPending} type="submit">
+              {createAccountMutation.isPending ? "Saving..." : "Save account"}
+            </Button>
           </div>
         </form>
       ) : null}
@@ -143,15 +244,25 @@ export function AccountManagementDialog({
             </p>
           </div>
 
+          {deleteAccountMutation.isError ? (
+            <p className="text-sm font-medium text-[#9a3412]">
+              {getErrorMessage(
+                deleteAccountMutation.error,
+                "Failed to delete brokerage account.",
+              )}
+            </p>
+          ) : null}
+
           <div className="flex justify-end gap-2">
             <Button onClick={() => setView("list")} variant="secondary">
               Cancel
             </Button>
             <Button
               className="bg-[#9a3412] hover:bg-[#7c2d12]"
-              onClick={() => setView("list")}
+              disabled={deleteAccountMutation.isPending}
+              onClick={handleDeleteAccount}
             >
-              Delete account
+              {deleteAccountMutation.isPending ? "Deleting..." : "Delete account"}
             </Button>
           </div>
         </div>
@@ -205,4 +316,8 @@ function AccountListView({ accounts, onAdd, onDelete }: AccountListViewProps) {
       </div>
     </div>
   );
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }

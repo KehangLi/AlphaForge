@@ -30,6 +30,13 @@ export type BrokerageAccountListResponse = {
   baseCurrency: string;
 };
 
+export type BrokerageAccountCreateRequest = {
+  brokerName: string;
+  accountName: string;
+  accountNumberMasked?: string;
+  baseCurrency: string;
+};
+
 export type AccountActivityResponse = {
   id: string;
   brokerageAccountId: string;
