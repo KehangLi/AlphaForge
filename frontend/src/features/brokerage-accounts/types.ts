@@ -1,27 +1,3 @@
-export type BrokerageAccountSummary = {
-  id: string;
-  broker: string;
-  name: string;
-  currency: string;
-  status: string;
-};
-
-export type AccountActivity = {
-  date: string;
-  action: string;
-  instrument: string;
-  ticker: string;
-  shares: string;
-  price: string;
-  total: string;
-  currency: string;
-};
-
-export type DashboardMetric = {
-  label: string;
-  value: string;
-};
-
 export type BrokerageAccountListResponse = {
   id: string;
   brokerName: string;
