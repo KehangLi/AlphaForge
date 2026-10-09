@@ -1,11 +1,11 @@
 package com.likehang.alphaforge.rest.controller;
 
-import com.likehang.alphaforge.model.dto.command.BrokerageAccountCreateRequest;
-import com.likehang.alphaforge.model.dto.query.BrokerageAccountListResponse;
-import com.likehang.alphaforge.service.BadRequestException;
+import com.likehang.alphaforge.rest.dto.request.BrokerageAccountCreateRequest;
+import com.likehang.alphaforge.rest.dto.response.BrokerageAccountListResponse;
+import com.likehang.alphaforge.exception.BadRequestException;
 import com.likehang.alphaforge.service.BrokerageAccountService;
 import com.likehang.alphaforge.service.CurrentUserService;
-import com.likehang.alphaforge.service.ResourceNotFoundException;
+import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;

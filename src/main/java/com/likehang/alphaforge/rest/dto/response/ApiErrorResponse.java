@@ -1,4 +1,4 @@
-package com.likehang.alphaforge.rest.dto;
+package com.likehang.alphaforge.rest.dto.response;
 
 import java.time.Instant;
 

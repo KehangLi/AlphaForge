@@ -1,4 +1,4 @@
-package com.likehang.alphaforge.model.dto.query;
+package com.likehang.alphaforge.rest.dto.response;
 
 import java.util.UUID;
 

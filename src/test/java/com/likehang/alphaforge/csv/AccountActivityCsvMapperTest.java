@@ -1,7 +1,7 @@
-package com.likehang.alphaforge.model.mapper;
+package com.likehang.alphaforge.csv;
 
-import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvHeaders;
-import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvRow;
+import com.likehang.alphaforge.csv.dto.AccountActivityCsvHeaders;
+import com.likehang.alphaforge.csv.dto.AccountActivityCsvRow;
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;

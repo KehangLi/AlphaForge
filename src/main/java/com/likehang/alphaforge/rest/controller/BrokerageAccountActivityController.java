@@ -1,7 +1,7 @@
 package com.likehang.alphaforge.rest.controller;
 
-import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvImportResult;
-import com.likehang.alphaforge.model.dto.query.AccountActivityPageResponse;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityCsvImportResult;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityPageResponse;
 import com.likehang.alphaforge.service.AccountActivityCsvImportService;
 import com.likehang.alphaforge.service.AccountActivityQueryService;
 import com.likehang.alphaforge.service.CurrentUserService;

@@ -42,3 +42,5 @@ frontend/next-env.d.ts
 
 ### secret, env ###
 .env
+
+.DS_Store

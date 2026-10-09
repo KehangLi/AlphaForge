@@ -1,7 +1,9 @@
 package com.likehang.alphaforge.service;
 
-import com.likehang.alphaforge.model.dto.query.AccountActivityPageResponse;
-import com.likehang.alphaforge.model.dto.query.AccountActivityResponse;
+import com.likehang.alphaforge.exception.BadRequestException;
+import com.likehang.alphaforge.exception.ResourceNotFoundException;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityPageResponse;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityResponse;
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
