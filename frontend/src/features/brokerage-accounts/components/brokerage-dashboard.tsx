@@ -1,29 +1,27 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
-
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 import {
   useAccountActivitiesQuery,
   useBrokerageAccountsQuery,
   useDeleteImportBatchMutation,
-  useImportAccountActivitiesMutation,
   useImportBatchesQuery,
 } from "../queries";
-import type {
-  AccountActivityCsvImportResult,
-  BrokerageAccountListResponse,
-} from "../types";
+import {
+  formatShortAccountLabel,
+} from "../formatters";
+import type { BrokerageAccountListResponse } from "../types";
 import { AccountManagementDialog } from "./account-management-dialog";
 import { AccountActivitiesTable } from "./account-activities-table";
+import { AccountToolbar } from "./account-toolbar";
+import { CsvImportAction } from "./csv-import-action";
 import { ImportBatchHistory } from "./import-batch-history";
 
 const ACTIVITY_PAGE_SIZE = 10;
 const IMPORT_BATCH_PAGE_SIZE = 20;
 
 export function BrokerageDashboard() {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [activityPage, setActivityPage] = useState(0);
   const [isImportSidebarOpen, setIsImportSidebarOpen] = useState(true);
@@ -35,22 +33,14 @@ export function BrokerageDashboard() {
     isFetching: isBrokerageAccountsFetching,
     isLoading: isBrokerageAccountsLoading,
     refetch: refetchBrokerageAccounts,
-  } = useBrokerageAccountsQuery();     //const accounts = await getBrokerageAccounts()
-  const importMutation = useImportAccountActivitiesMutation();
+  } = useBrokerageAccountsQuery();
   const deleteImportBatchMutation = useDeleteImportBatchMutation();
-  const accountSelectPlaceholder = getAccountSelectPlaceholder({
-    isError: isBrokerageAccountsError,
-    isLoading: isBrokerageAccountsLoading,
-  });
 
-  // check if the selectedAccount exist?
   const resolvedSelectedAccountId = accounts.some(
     (account) => account.id === selectedAccountId,
   )
     ? selectedAccountId
     : accounts[0]?.id ?? "";
-
-  // according to the account ID, to find the account
   const selectedAccount = accounts.find(
     (account) => account.id === resolvedSelectedAccountId,
   );
@@ -83,27 +73,14 @@ export function BrokerageDashboard() {
     ? deleteImportBatchMutation.variables?.importBatchId
     : undefined;
 
-  function handleImportButtonClick() {
-    if (!resolvedSelectedAccountId || importMutation.isPending) {
-      return;
-    }
-
-    fileInputRef.current?.click();
+  function resetAccountActions() {
+    setActivityPage(0);
+    deleteImportBatchMutation.reset();
   }
 
-  function handleCsvFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file || !resolvedSelectedAccountId) {
-      return;
-    }
-
-    setActivityPage(0);
-    importMutation.mutate({
-      brokerageAccountId: resolvedSelectedAccountId,
-      file,
-    });
+  function handleAccountChange(accountId: string) {
+    setSelectedAccountId(accountId);
+    resetAccountActions();
   }
 
   function handleDeleteImportBatch(importBatchId: string) {
@@ -120,9 +97,7 @@ export function BrokerageDashboard() {
 
   function handleAccountCreated(account: BrokerageAccountListResponse) {
     setSelectedAccountId(account.id);
-    setActivityPage(0);
-    deleteImportBatchMutation.reset();
-    importMutation.reset();
+    resetAccountActions();
   }
 
   function handleAccountDeleted(accountId: string) {
@@ -130,9 +105,7 @@ export function BrokerageDashboard() {
       setSelectedAccountId("");
     }
 
-    setActivityPage(0);
-    deleteImportBatchMutation.reset();
-    importMutation.reset();
+    resetAccountActions();
   }
 
   return (
@@ -148,102 +121,34 @@ export function BrokerageDashboard() {
             </h1>
           </div>
 
-          <div className="flex flex-col items-start gap-2 md:items-end">
-            <Button
-              disabled={!selectedAccount || importMutation.isPending}
-              onClick={handleImportButtonClick}
-            >
-              {importMutation.isPending ? "Uploading CSV" : "Import CSV"}
-            </Button>
-            <input
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={handleCsvFileChange}
-              ref={fileInputRef}
-              type="file"
-            />
-            <UploadStatusMessage
-              error={importMutation.error}
-              isError={importMutation.isError}
-              result={importMutation.data}
-            />
-          </div>
+          <CsvImportAction
+            accountId={resolvedSelectedAccountId}
+            disabled={!selectedAccount}
+            key={resolvedSelectedAccountId}
+            onImportStarted={() => setActivityPage(0)}
+          />
         </header>
 
-        <section className="flex flex-col gap-3 border-b border-[#cfd9d2] py-5 md:flex-row md:items-center md:justify-between">
-          <label
-            className="text-sm font-semibold text-[#4e5d53]"
-            htmlFor="account-select"
-          >
-            Account
-          </label>
-          <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-96">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <select
-                className="min-h-11 w-full rounded-md border border-[#b9c9be] bg-white px-3 text-sm font-semibold text-[#18221d] shadow-sm outline-none transition disabled:cursor-not-allowed disabled:bg-[#f4f7f5] disabled:text-[#7c8b81] focus:border-[#3e6f57] focus:ring-2 focus:ring-[#b9c9be]"
-                disabled={isBrokerageAccountsLoading || accounts.length === 0}
-                id="account-select"
-                onChange={(event) => {
-                  setSelectedAccountId(event.target.value);
-                  setActivityPage(0);
-                  deleteImportBatchMutation.reset();
-                  importMutation.reset();
-                }}
-                value={resolvedSelectedAccountId}
-              >
-                {accounts.length === 0 ? (
-                  <option value="">
-                    {accountSelectPlaceholder}
-                  </option>
-                ) : null}
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {formatAccountLabel(account)}
-                  </option>
-                ))}
-              </select>
-              <Button
-                className="w-full justify-center sm:w-fit"
-                disabled={isBrokerageAccountsFetching}
-                onClick={() => void refetchBrokerageAccounts()}
-                variant="secondary"
-              >
-                {isBrokerageAccountsFetching ? "Refreshing" : "Refresh"}
-              </Button>
-              <Button
-                className="w-full justify-center sm:w-fit"
-                onClick={() =>
-                  setIsImportSidebarOpen((isCurrentlyOpen) => !isCurrentlyOpen)
-                }
-                variant="secondary"
-              >
-                {isImportSidebarOpen ? "Hide imports" : "Show imports"}
-              </Button>
-              <Button
-                className="w-full justify-center sm:w-fit"
-                onClick={() => setIsAccountManagementOpen(true)}
-                variant="secondary"
-              >
-                Manage accounts
-              </Button>
-            </div>
-
-            {isBrokerageAccountsError ? (
-              <p className="text-sm font-medium text-[#9a3412]">
-                {brokerageAccountsError instanceof Error
-                  ? brokerageAccountsError.message
-                  : "Failed to load brokerage accounts."}
-              </p>
-            ) : null}
-
-            {selectedAccount ? (
-              <p className="text-sm text-[#65746a]">
-                Selected {selectedAccount.brokerName} /{" "}
-                {selectedAccount.accountName}
-              </p>
-            ) : null}
-          </div>
-        </section>
+        <AccountToolbar
+          accountSelectPlaceholder={getAccountSelectPlaceholder({
+            isError: isBrokerageAccountsError,
+            isLoading: isBrokerageAccountsLoading,
+          })}
+          accounts={accounts}
+          accountsError={brokerageAccountsError}
+          isAccountsError={isBrokerageAccountsError}
+          isAccountsFetching={isBrokerageAccountsFetching}
+          isAccountsLoading={isBrokerageAccountsLoading}
+          isImportSidebarOpen={isImportSidebarOpen}
+          onAccountChange={handleAccountChange}
+          onManageAccounts={() => setIsAccountManagementOpen(true)}
+          onRefresh={() => void refetchBrokerageAccounts()}
+          onToggleImportSidebar={() =>
+            setIsImportSidebarOpen((isCurrentlyOpen) => !isCurrentlyOpen)
+          }
+          selectedAccount={selectedAccount}
+          selectedAccountId={resolvedSelectedAccountId}
+        />
 
         <section
           className={
@@ -332,58 +237,4 @@ function getAccountSelectPlaceholder({
   }
 
   return "No accounts found";
-}
-
-function formatAccountLabel(account: BrokerageAccountListResponse) {
-  const accountNumber = account.accountNumberMasked
-    ? ` ${account.accountNumberMasked}`
-    : "";
-
-  return `${account.brokerName} - ${account.accountName}${accountNumber} (${account.baseCurrency})`;
-}
-
-function formatShortAccountLabel(account: BrokerageAccountListResponse) {
-  return `${account.brokerName} / ${account.accountName}`;
-}
-
-type UploadStatusMessageProps = {
-  error: unknown;
-  isError: boolean;
-  result?: AccountActivityCsvImportResult;
-};
-
-function UploadStatusMessage({
-  error,
-  isError,
-  result,
-}: UploadStatusMessageProps) {
-  if (isError) {
-    return (
-      <p className="max-w-sm text-sm font-medium text-[#9a3412]">
-        {error instanceof Error ? error.message : "CSV upload failed."}
-      </p>
-    );
-  }
-
-  if (!result) {
-    return null;
-  }
-
-  const firstError = result.errors[0];
-
-  return (
-    <div className="max-w-sm text-sm font-medium text-[#2d654b] md:text-right">
-      <p>
-        Imported {result.successRows} of {result.totalRows} rows
-        {result.failedRows > 0 ? `, ${result.failedRows} failed` : ""}.
-      </p>
-      {firstError ? (
-        <p className="mt-1 text-[#9a3412]">
-          First error: row {firstError.rowNumber}
-          {firstError.columnName ? ` / ${firstError.columnName}` : ""} -{" "}
-          {firstError.message}
-        </p>
-      ) : null}
-    </div>
-  );
 }
