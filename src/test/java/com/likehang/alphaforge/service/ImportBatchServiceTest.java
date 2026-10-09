@@ -1,7 +1,8 @@
 package com.likehang.alphaforge.service;
 
-import com.likehang.alphaforge.model.dto.query.ImportBatchPageResponse;
-import com.likehang.alphaforge.model.dto.query.ImportBatchResponse;
+import com.likehang.alphaforge.exception.ResourceNotFoundException;
+import com.likehang.alphaforge.rest.dto.response.ImportBatchPageResponse;
+import com.likehang.alphaforge.rest.dto.response.ImportBatchResponse;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;

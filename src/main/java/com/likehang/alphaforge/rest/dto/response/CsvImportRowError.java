@@ -1,4 +1,4 @@
-package com.likehang.alphaforge.model.dto.csv;
+package com.likehang.alphaforge.rest.dto.response;
 
 public record CsvImportRowError(
         int rowNumber,

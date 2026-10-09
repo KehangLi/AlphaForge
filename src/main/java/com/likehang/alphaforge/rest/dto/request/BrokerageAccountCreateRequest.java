@@ -1,4 +1,4 @@
-package com.likehang.alphaforge.model.dto.command;
+package com.likehang.alphaforge.rest.dto.request;
 
 public record BrokerageAccountCreateRequest(
         String brokerName,

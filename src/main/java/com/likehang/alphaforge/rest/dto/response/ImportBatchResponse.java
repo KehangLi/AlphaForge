@@ -1,13 +1,12 @@
-package com.likehang.alphaforge.model.dto.csv;
+package com.likehang.alphaforge.rest.dto.response;
 
 import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 
-import java.util.List;
+import java.time.Instant;
 import java.util.UUID;
 
-// record是只装数据的类
-public record AccountActivityCsvImportResult(
-        UUID importBatchId,
+public record ImportBatchResponse(
+        UUID id,
         UUID brokerageAccountId,
         String originalFilename,
         String fileHash,
@@ -15,6 +14,9 @@ public record AccountActivityCsvImportResult(
         int totalRows,
         int successRows,
         int failedRows,
-        List<CsvImportRowError> errors
+        Instant startedAt,
+        Instant completedAt,
+        Instant createdAt,
+        Instant updatedAt
 ) {
 }

@@ -1,4 +1,4 @@
-package com.likehang.alphaforge.model.dto.csv;
+package com.likehang.alphaforge.csv.dto;
 
 import java.util.List;
 

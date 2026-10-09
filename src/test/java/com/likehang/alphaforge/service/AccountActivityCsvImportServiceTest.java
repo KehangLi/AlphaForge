@@ -1,12 +1,14 @@
 package com.likehang.alphaforge.service;
 
-import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvImportResult;
-import com.likehang.alphaforge.model.entity.AccountActivity;
+import com.likehang.alphaforge.csv.AccountActivityCsvMapper;
+import com.likehang.alphaforge.csv.AccountActivityCsvParser;
+import com.likehang.alphaforge.csv.CsvImportFileSupport;
+import com.likehang.alphaforge.exception.CsvImportException;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
 import com.likehang.alphaforge.model.entity.ImportBatchStatus;
-import com.likehang.alphaforge.model.mapper.AccountActivityCsvMapper;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.ImportBatchRepository;
@@ -36,6 +38,8 @@ class AccountActivityCsvImportServiceTest {
     private final ImportBatchRepository importBatchRepository = mock(ImportBatchRepository.class);
     private final AccountActivityRepository accountActivityRepository = mock(AccountActivityRepository.class);
     private final AccountActivityCsvMapper accountActivityCsvMapper = new AccountActivityCsvMapper();
+    private final AccountActivityCsvParser accountActivityCsvParser = new AccountActivityCsvParser(accountActivityCsvMapper);
+    private final CsvImportFileSupport csvImportFileSupport = new CsvImportFileSupport();
 
     private final UUID userId = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private final UUID brokerageAccountId = UUID.fromString("20000000-0000-0000-0000-000000000001");
@@ -50,7 +54,8 @@ class AccountActivityCsvImportServiceTest {
                 brokerageAccountRepository,
                 importBatchRepository,
                 accountActivityRepository,
-                accountActivityCsvMapper,
+                accountActivityCsvParser,
+                csvImportFileSupport,
                 "Manual CSV Upload",
                 "Default Local Account"
         );

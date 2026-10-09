@@ -1,6 +1,6 @@
 package com.likehang.alphaforge.rest.controller;
 
-import com.likehang.alphaforge.model.dto.query.ImportBatchPageResponse;
+import com.likehang.alphaforge.rest.dto.response.ImportBatchPageResponse;
 import com.likehang.alphaforge.service.CurrentUserService;
 import com.likehang.alphaforge.service.ImportBatchService;
 import org.springframework.data.domain.PageRequest;

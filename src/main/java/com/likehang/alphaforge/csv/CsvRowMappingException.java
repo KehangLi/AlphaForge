@@ -1,4 +1,4 @@
-package com.likehang.alphaforge.model.mapper;
+package com.likehang.alphaforge.csv;
 
 public class CsvRowMappingException extends IllegalArgumentException {
 

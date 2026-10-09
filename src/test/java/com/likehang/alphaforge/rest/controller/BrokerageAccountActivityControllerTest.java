@@ -1,14 +1,14 @@
 package com.likehang.alphaforge.rest.controller;
 
-import com.likehang.alphaforge.model.dto.csv.AccountActivityCsvImportResult;
-import com.likehang.alphaforge.model.dto.query.AccountActivityPageResponse;
-import com.likehang.alphaforge.model.dto.query.AccountActivityResponse;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityCsvImportResult;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityPageResponse;
+import com.likehang.alphaforge.rest.dto.response.AccountActivityResponse;
 import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.service.AccountActivityCsvImportService;
 import com.likehang.alphaforge.service.AccountActivityQueryService;
-import com.likehang.alphaforge.service.CsvImportException;
+import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.service.CurrentUserService;
-import com.likehang.alphaforge.service.ResourceNotFoundException;
+import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
@@ -218,7 +218,7 @@ class BrokerageAccountActivityControllerTest {
         private UUID requestedBrokerageAccountId;
 
         private FakeAccountActivityCsvImportService() {
-            super(null, null, null, null, "", "");
+            super(null, null, null, null, null, "", "");
         }
 
         @Override

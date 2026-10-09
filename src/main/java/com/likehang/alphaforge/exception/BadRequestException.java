@@ -1,4 +1,4 @@
-package com.likehang.alphaforge.service;
+package com.likehang.alphaforge.exception;
 
 public class BadRequestException extends RuntimeException {
 
