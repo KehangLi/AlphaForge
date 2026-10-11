@@ -15,6 +15,8 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
 
     List<AccountActivity> findByImportBatch_IdOrderByRowNumberAsc(UUID importBatchId);
 
+    List<AccountActivity> findByBrokerageAccount_Id(UUID brokerageAccountId);
+
     Page<AccountActivity> findByImportBatch_IdOrderByRowNumberAsc(UUID importBatchId, Pageable pageable);
 
     Page<AccountActivity> findByImportBatch_BrokerageAccount_User_IdAndImportBatch_IdOrderByRowNumberAsc(

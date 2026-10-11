@@ -33,6 +33,7 @@ public class AccountActivityCsvImportService {
     private final AccountActivityRepository accountActivityRepository;
     private final AccountActivityCsvParser accountActivityCsvParser;
     private final CsvImportFileSupport csvImportFileSupport;
+    private final AccountActivityHoldingValidationService accountActivityHoldingValidationService;
     private final String defaultBrokerName;
     private final String defaultAccountName;
 
@@ -42,6 +43,7 @@ public class AccountActivityCsvImportService {
             AccountActivityRepository accountActivityRepository,
             AccountActivityCsvParser accountActivityCsvParser,
             CsvImportFileSupport csvImportFileSupport,
+            AccountActivityHoldingValidationService accountActivityHoldingValidationService,
             @Value("${alphaforge.dev.brokerage-account.broker-name:}") String defaultBrokerName,
             @Value("${alphaforge.dev.brokerage-account.account-name:}") String defaultAccountName
     ) {
@@ -50,6 +52,7 @@ public class AccountActivityCsvImportService {
         this.accountActivityRepository = accountActivityRepository;
         this.accountActivityCsvParser = accountActivityCsvParser;
         this.csvImportFileSupport = csvImportFileSupport;
+        this.accountActivityHoldingValidationService = accountActivityHoldingValidationService;
         this.defaultBrokerName = defaultBrokerName.trim();
         this.defaultAccountName = defaultAccountName.trim();
     }
@@ -96,6 +99,7 @@ public class AccountActivityCsvImportService {
 
         AccountActivityCsvParseResult parseResult = accountActivityCsvParser.parse(fileBytes, importBatch, brokerageAccount);
         if (!parseResult.activities().isEmpty()) {
+            accountActivityHoldingValidationService.validateNoNegativeHoldings(brokerageAccountId, parseResult.activities());
             accountActivityRepository.saveAll(parseResult.activities());
         }
 

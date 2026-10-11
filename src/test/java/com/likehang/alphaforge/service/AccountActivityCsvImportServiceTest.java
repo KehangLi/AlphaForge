@@ -3,6 +3,7 @@ package com.likehang.alphaforge.service;
 import com.likehang.alphaforge.csv.AccountActivityCsvMapper;
 import com.likehang.alphaforge.csv.AccountActivityCsvParser;
 import com.likehang.alphaforge.csv.CsvImportFileSupport;
+import com.likehang.alphaforge.exception.BadRequestException;
 import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.rest.dto.response.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.model.entity.AppUser;
@@ -40,6 +41,8 @@ class AccountActivityCsvImportServiceTest {
     private final AccountActivityCsvMapper accountActivityCsvMapper = new AccountActivityCsvMapper();
     private final AccountActivityCsvParser accountActivityCsvParser = new AccountActivityCsvParser(accountActivityCsvMapper);
     private final CsvImportFileSupport csvImportFileSupport = new CsvImportFileSupport();
+    private final AccountActivityHoldingValidationService accountActivityHoldingValidationService =
+            new AccountActivityHoldingValidationService(accountActivityRepository);
 
     private final UUID userId = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private final UUID brokerageAccountId = UUID.fromString("20000000-0000-0000-0000-000000000001");
@@ -56,6 +59,7 @@ class AccountActivityCsvImportServiceTest {
                 accountActivityRepository,
                 accountActivityCsvParser,
                 csvImportFileSupport,
+                accountActivityHoldingValidationService,
                 "Manual CSV Upload",
                 "Default Local Account"
         );
@@ -76,6 +80,7 @@ class AccountActivityCsvImportServiceTest {
             return importBatch;
         });
         when(accountActivityRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accountActivityRepository.findByBrokerageAccount_Id(brokerageAccountId)).thenReturn(List.of());
     }
 
     @Test
@@ -173,6 +178,20 @@ class AccountActivityCsvImportServiceTest {
     }
 
     @Test
+    void rejectsCsvThatWouldCreateNegativeHoldings() {
+        when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
+                .thenReturn(Optional.of(brokerageAccount));
+
+        assertThatThrownBy(() -> service.importCsv(userId, brokerageAccountId, file(csvWithOversoldPosition())))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("negative holdings")
+                .hasMessageContaining("NVDA")
+                .hasMessageContaining("row 2");
+
+        verify(accountActivityRepository, never()).saveAll(any());
+    }
+
+    @Test
     void rejectsBrokerageAccountThatIsNotOwnedByUser() {
         when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
                 .thenReturn(Optional.empty());
@@ -215,6 +234,13 @@ class AccountActivityCsvImportServiceTest {
         return String.join("\n", List.of(
                 "Action,Time (UTC),Currency (Total)",
                 "Interest on cash,2026-07-01 01:05:30+00:00,EUR"
+        ));
+    }
+
+    private String csvWithOversoldPosition() {
+        return String.join("\n", List.of(
+                csvHeader(),
+                "Limit sell,2026-07-01 13:35:43+00:00,US67066G1040,NVDA,NVIDIA,,EOF53510842405,1.0000000000,88.4900000000,USD,1.13901403,5.00,EUR,77.81,EUR,,,0.12,EUR,,"
         ));
     }
 
