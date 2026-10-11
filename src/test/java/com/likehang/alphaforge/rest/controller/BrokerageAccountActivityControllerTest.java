@@ -218,7 +218,7 @@ class BrokerageAccountActivityControllerTest {
         private UUID requestedBrokerageAccountId;
 
         private FakeAccountActivityCsvImportService() {
-            super(null, null, null, null, null, "", "");
+            super(null, null, null, null, null, null, "", "");
         }
 
         @Override
