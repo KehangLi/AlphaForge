@@ -2,6 +2,8 @@ package com.likehang.alphaforge.model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,7 +29,11 @@ public class AppUser {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "email", nullable = false, length = 320)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_type", nullable = false, length = 20)
+    private AppUserType userType = AppUserType.REGISTERED;
+
+    @Column(name = "email", length = 320)
     private String email;
 
     @Column(name = "display_name", length = 120)
@@ -39,13 +45,18 @@ public class AppUser {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    // 创建对象 constructor
+    // constructor
     public AppUser() {
     }
 
     public AppUser(String email, String displayName) {
+        this(email, displayName, AppUserType.REGISTERED);
+    }
+
+    public AppUser(String email, String displayName, AppUserType userType) {
         this.email = email;
         this.displayName = displayName;
+        this.userType = userType;
     }
 
     @PrePersist //第一次插入数据库之前执行 --> 因为constructor
@@ -66,6 +77,14 @@ public class AppUser {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public AppUserType getUserType() {
+        return userType;
+    }
+
+    public void setUserType(AppUserType userType) {
+        this.userType = userType;
     }
 
     public String getEmail() {

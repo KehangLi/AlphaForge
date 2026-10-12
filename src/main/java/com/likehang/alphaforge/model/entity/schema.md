@@ -7,6 +7,7 @@ erDiagram
 
     APP_USER {
         uuid id PK
+        varchar user_type "GUEST or REGISTERED"
         varchar email UK
         varchar display_name
         timestamptz created_at
