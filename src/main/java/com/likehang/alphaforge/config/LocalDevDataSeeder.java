@@ -1,6 +1,7 @@
 package com.likehang.alphaforge.config;
 
 import com.likehang.alphaforge.model.entity.AppUser;
+import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
@@ -58,7 +59,9 @@ public class LocalDevDataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         AppUser appUser = appUserRepository.findByEmailIgnoreCase(userEmail)
-                .orElseGet(() -> appUserRepository.save(new AppUser(userEmail, userDisplayName)));
+                .orElseGet(() -> appUserRepository.save(
+                        new AppUser(userEmail, userDisplayName, AppUserType.REGISTERED)
+                ));
 
         seedBrokerageAccount(appUser, longTermAccount);
         seedBrokerageAccount(appUser, shortTermAccount);
