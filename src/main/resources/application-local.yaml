@@ -4,6 +4,12 @@ spring:
     username: ${DB_USERNAME:alphaforgeUser}
     password: ${DB_PASSWORD:alphaforgePass}
 
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
 alphaforge:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
