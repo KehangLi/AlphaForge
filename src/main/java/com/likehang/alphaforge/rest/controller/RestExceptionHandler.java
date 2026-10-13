@@ -3,6 +3,7 @@ package com.likehang.alphaforge.rest.controller;
 import com.likehang.alphaforge.rest.dto.response.ApiErrorResponse;
 import com.likehang.alphaforge.exception.BadRequestException;
 import com.likehang.alphaforge.exception.CsvImportException;
+import com.likehang.alphaforge.exception.ConflictException;
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,11 @@ public class RestExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleResourceNotFoundException(ResourceNotFoundException exception) {
         return buildResponse(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleConflictException(ConflictException exception) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage());
     }
 
     @ExceptionHandler({
