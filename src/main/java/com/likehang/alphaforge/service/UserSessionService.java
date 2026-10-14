@@ -35,4 +35,14 @@ public class UserSessionService {
         session.setAttribute(USER_ID_ATTRIBUTE, userId);
         session.setAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME, userId.toString());
     }
+
+    public boolean endSession(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+
+        session.invalidate();
+        return true;
+    }
 }

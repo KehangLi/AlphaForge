@@ -49,4 +49,22 @@ class UserSessionServiceTest {
         assertThat(newSession.getAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME))
                 .isEqualTo(userId.toString());
     }
+
+    @Test
+    void invalidatesExistingSession() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpSession session = (MockHttpSession) request.getSession();
+
+        assertThat(service.endSession(request)).isTrue();
+        assertThat(session.isInvalid()).isTrue();
+        assertThat(request.getSession(false)).isNull();
+    }
+
+    @Test
+    void doesNotCreateSessionWhenEndingMissingSession() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        assertThat(service.endSession(request)).isFalse();
+        assertThat(request.getSession(false)).isNull();
+    }
 }
