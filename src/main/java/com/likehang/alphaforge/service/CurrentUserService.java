@@ -1,10 +1,8 @@
 package com.likehang.alphaforge.service;
 
-import com.likehang.alphaforge.exception.BadRequestException;
-import com.likehang.alphaforge.exception.ResourceNotFoundException;
-import com.likehang.alphaforge.model.entity.AppUser;
+import com.likehang.alphaforge.exception.UnauthorizedException;
 import com.likehang.alphaforge.repository.AppUserRepository;
-import org.springframework.beans.factory.annotation.Value;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,25 +12,26 @@ import java.util.UUID;
 public class CurrentUserService {
 
     private final AppUserRepository appUserRepository;
-    private final String defaultUserEmail;
+    private final UserSessionService userSessionService;
+    private final HttpServletRequest request;
 
     public CurrentUserService(
             AppUserRepository appUserRepository,
-            @Value("${alphaforge.dev.user.email:}") String defaultUserEmail
+            UserSessionService userSessionService,
+            HttpServletRequest request
     ) {
         this.appUserRepository = appUserRepository;
-        this.defaultUserEmail = defaultUserEmail.trim();
+        this.userSessionService = userSessionService;
+        this.request = request;
     }
 
     @Transactional(readOnly = true)
     public UUID getCurrentUserId() {
-        if (defaultUserEmail.isBlank()) {
-            throw new BadRequestException("Current user is not configured");
+        UUID userId = userSessionService.getUserId(request);
+        if (userId == null || !appUserRepository.existsById(userId)) {
+            throw new UnauthorizedException("A valid user session is required");
         }
 
-        AppUser appUser = appUserRepository.findByEmailIgnoreCase(defaultUserEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found: " + defaultUserEmail));
-
-        return appUser.getId();
+        return userId;
     }
 }

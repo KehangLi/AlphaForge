@@ -5,6 +5,7 @@ import com.likehang.alphaforge.exception.BadRequestException;
 import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.exception.ConflictException;
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
+import com.likehang.alphaforge.exception.UnauthorizedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -37,6 +38,11 @@ public class RestExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiErrorResponse> handleConflictException(ConflictException exception) {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnauthorizedException(UnauthorizedException exception) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, exception.getMessage());
     }
 
     @ExceptionHandler({
