@@ -1,5 +1,5 @@
-import { BrokerageDashboard } from "@/features/brokerage-accounts/components/brokerage-dashboard";
+import { GuestEntryPage } from "@/features/guest-entry/components/guest-entry-page";
 
 export default function Home() {
-  return <BrokerageDashboard />;
+  return <GuestEntryPage />;
 }
