@@ -2,6 +2,11 @@
 
 import { formatShortAccountLabel } from "../formatters";
 import { useBrokerageWorkspace } from "../hooks/use-brokerage-workspace";
+import {
+  GuestAccountEmptyState,
+  GuestActivityEmptyState,
+} from "@/features/guest-session/components/guest-onboarding-states";
+import { GuestSessionMenu } from "@/features/guest-session/components/guest-session-menu";
 import { AccountManagementDialog } from "./account-management-dialog";
 import { AccountActivitiesTable } from "./account-activities-table";
 import { AccountToolbar } from "./account-toolbar";
@@ -10,6 +15,15 @@ import { ImportBatchHistory } from "./import-batch-history";
 
 export function BrokerageDashboard() {
   const workspace = useBrokerageWorkspace();
+  const isActivityEmpty =
+    Boolean(workspace.selectedAccount) &&
+    !workspace.isAccountActivitiesLoading &&
+    !workspace.isAccountActivitiesError &&
+    workspace.accountActivityPage?.totalElements === 0;
+  const isAccountListEmpty =
+    !workspace.isAccountsLoading &&
+    !workspace.isAccountsError &&
+    workspace.accounts.length === 0;
 
   return (
     <main className="min-h-screen bg-[#eef3ef] text-[#18221d]">
@@ -24,12 +38,16 @@ export function BrokerageDashboard() {
             </h1>
           </div>
 
-          <CsvImportAction
-            accountId={workspace.selectedAccountId}
-            disabled={!workspace.selectedAccount}
-            key={workspace.selectedAccountId}
-            onImportStarted={() => workspace.setActivityPage(0)}
-          />
+          <div className="flex flex-col items-start gap-2 md:items-end">
+            {!isActivityEmpty && workspace.selectedAccount ? (
+              <CsvImportAction
+                accountId={workspace.selectedAccountId}
+                key={workspace.selectedAccountId}
+                onImportStarted={() => workspace.setActivityPage(0)}
+              />
+            ) : null}
+            <GuestSessionMenu />
+          </div>
         </header>
 
         <AccountToolbar
@@ -50,64 +68,81 @@ export function BrokerageDashboard() {
           selectedAccountId={workspace.selectedAccountId}
         />
 
-        <section
-          className={
-            workspace.isImportSidebarOpen
-              ? "grid flex-1 gap-6 py-6 xl:grid-cols-[minmax(0,1fr)_360px]"
-              : "grid flex-1 gap-6 py-6"
-          }
-        >
-          <div className="min-w-0">
-            <AccountActivitiesTable
-              activities={workspace.accountActivityPage?.activities ?? []}
-              emptyMessage={
-                workspace.selectedAccount
-                  ? "No activity yet. Import a CSV to populate this account."
-                  : "Select an account to load activity."
-              }
-              error={workspace.accountActivitiesError}
-              isError={workspace.isAccountActivitiesError}
-              isFetching={workspace.isAccountActivitiesFetching}
-              isLoading={workspace.isAccountActivitiesLoading}
-              isPageFirst={workspace.accountActivityPage?.first ?? true}
-              isPageLast={workspace.accountActivityPage?.last ?? true}
-              onNextPage={() =>
-                workspace.setActivityPage((currentPage) => currentPage + 1)
-              }
-              onPreviousPage={() =>
-                workspace.setActivityPage((currentPage) => Math.max(currentPage - 1, 0))
-              }
-              onRefresh={() => void workspace.refetchAccountActivities()}
-              page={workspace.accountActivityPage?.page}
-              size={workspace.accountActivityPage?.size}
-              totalElements={workspace.accountActivityPage?.totalElements}
-              totalPages={workspace.accountActivityPage?.totalPages}
+        {isAccountListEmpty ? (
+          <section className="py-6">
+            <GuestAccountEmptyState
+              onAddAccount={() => workspace.setIsAccountManagementOpen(true)}
             />
-          </div>
+          </section>
+        ) : (
+          <section
+            className={
+              workspace.isImportSidebarOpen
+                ? "grid flex-1 gap-6 py-6 xl:grid-cols-[minmax(0,1fr)_360px]"
+                : "grid flex-1 gap-6 py-6"
+            }
+          >
+            <div className="min-w-0">
+              {isActivityEmpty ? (
+                <GuestActivityEmptyState
+                  importAction={
+                    <CsvImportAction
+                      accountId={workspace.selectedAccountId}
+                      onImportStarted={() => workspace.setActivityPage(0)}
+                    />
+                  }
+                />
+              ) : (
+                <AccountActivitiesTable
+                  activities={workspace.accountActivityPage?.activities ?? []}
+                  emptyMessage="No activity yet. Import a CSV to populate this account."
+                  error={workspace.accountActivitiesError}
+                  isError={workspace.isAccountActivitiesError}
+                  isFetching={workspace.isAccountActivitiesFetching}
+                  isLoading={workspace.isAccountActivitiesLoading}
+                  isPageFirst={workspace.accountActivityPage?.first ?? true}
+                  isPageLast={workspace.accountActivityPage?.last ?? true}
+                  onNextPage={() =>
+                    workspace.setActivityPage((currentPage) => currentPage + 1)
+                  }
+                  onPreviousPage={() =>
+                    workspace.setActivityPage((currentPage) =>
+                      Math.max(currentPage - 1, 0),
+                    )
+                  }
+                  onRefresh={() => void workspace.refetchAccountActivities()}
+                  page={workspace.accountActivityPage?.page}
+                  size={workspace.accountActivityPage?.size}
+                  totalElements={workspace.accountActivityPage?.totalElements}
+                  totalPages={workspace.accountActivityPage?.totalPages}
+                />
+              )}
+            </div>
 
-          {workspace.isImportSidebarOpen ? (
-            <aside className="min-w-0 xl:sticky xl:top-6 xl:self-start">
-              <ImportBatchHistory
-                accountLabel={
-                  workspace.selectedAccount
-                    ? formatShortAccountLabel(workspace.selectedAccount)
-                    : undefined
-                }
-                batches={workspace.importBatchPage?.importBatches ?? []}
-                deletingImportBatchId={workspace.deletingImportBatchId}
-                deleteError={workspace.deleteImportBatchError}
-                error={workspace.importBatchesError}
-                isDisabled={!workspace.selectedAccount}
-                isError={workspace.isImportBatchesError}
-                isFetching={workspace.isImportBatchesFetching}
-                isLoading={workspace.isImportBatchesLoading}
-                onClose={() => workspace.setIsImportSidebarOpen(false)}
-                onDeleteBatch={workspace.onDeleteImportBatch}
-                onRefresh={() => void workspace.refetchImportBatches()}
-              />
-            </aside>
-          ) : null}
-        </section>
+            {workspace.isImportSidebarOpen ? (
+              <aside className="min-w-0 xl:sticky xl:top-6 xl:self-start">
+                <ImportBatchHistory
+                  accountLabel={
+                    workspace.selectedAccount
+                      ? formatShortAccountLabel(workspace.selectedAccount)
+                      : undefined
+                  }
+                  batches={workspace.importBatchPage?.importBatches ?? []}
+                  deletingImportBatchId={workspace.deletingImportBatchId}
+                  deleteError={workspace.deleteImportBatchError}
+                  error={workspace.importBatchesError}
+                  isDisabled={!workspace.selectedAccount}
+                  isError={workspace.isImportBatchesError}
+                  isFetching={workspace.isImportBatchesFetching}
+                  isLoading={workspace.isImportBatchesLoading}
+                  onClose={() => workspace.setIsImportSidebarOpen(false)}
+                  onDeleteBatch={workspace.onDeleteImportBatch}
+                  onRefresh={() => void workspace.refetchImportBatches()}
+                />
+              </aside>
+            ) : null}
+          </section>
+        )}
 
         <AccountManagementDialog
           accounts={workspace.accounts}
