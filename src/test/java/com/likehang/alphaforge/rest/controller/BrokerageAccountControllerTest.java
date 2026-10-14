@@ -205,7 +205,7 @@ class BrokerageAccountControllerTest {
         private final UUID userId;
 
         private FakeCurrentUserService(UUID userId) {
-            super(null, "");
+            super(null, null, null);
             this.userId = userId;
         }
 
