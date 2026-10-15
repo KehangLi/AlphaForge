@@ -3,9 +3,11 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { useLogoutMutation } from "@/features/auth/queries";
 
 export function GuestSessionMenu() {
   const router = useRouter();
+  const logoutMutation = useLogoutMutation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
 
@@ -15,8 +17,12 @@ export function GuestSessionMenu() {
   }
 
   function handleConfirmEndGuestExperience() {
-    setIsEndDialogOpen(false);
-    router.push("/");
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        setIsEndDialogOpen(false);
+        router.replace("/");
+      },
+    });
   }
 
   return (
@@ -74,11 +80,19 @@ export function GuestSessionMenu() {
             </Button>
             <Button
               className="bg-[#9a3412] hover:bg-[#7c2d12]"
+              disabled={logoutMutation.isPending}
               onClick={handleConfirmEndGuestExperience}
             >
-              End experience
+              {logoutMutation.isPending ? "Ending..." : "End experience"}
             </Button>
           </div>
+          {logoutMutation.isError ? (
+            <p className="text-sm font-medium text-[#9a3412]">
+              {logoutMutation.error instanceof Error
+                ? logoutMutation.error.message
+                : "Unable to end the guest experience."}
+            </p>
+          ) : null}
         </div>
       </Dialog>
     </div>

@@ -1,6 +1,21 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import { useCreateGuestSessionMutation } from "@/features/auth/queries";
 
 export function GuestEntryPage() {
+  const router = useRouter();
+  const guestSessionMutation = useCreateGuestSessionMutation();
+
+  function handleTryAsGuest() {
+    guestSessionMutation.mutate(undefined, {
+      onSuccess: () => router.push("/app"),
+    });
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ef] text-[#18221d]">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-6 lg:px-10">
@@ -48,12 +63,22 @@ export function GuestEntryPage() {
               create an account and import a CSV when you are ready.
             </p>
 
-            <Link
-              className="mt-6 flex min-h-10 w-full items-center justify-center rounded-md bg-[#173f35] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f2f27]"
-              href="/app"
+            <Button
+              className="mt-6 w-full justify-center"
+              disabled={guestSessionMutation.isPending}
+              onClick={handleTryAsGuest}
             >
-              Try as guest
-            </Link>
+              {guestSessionMutation.isPending
+                ? "Starting session..."
+                : "Try as guest"}
+            </Button>
+            {guestSessionMutation.isError ? (
+              <p className="mt-3 text-sm font-medium text-[#9a3412]">
+                {guestSessionMutation.error instanceof Error
+                  ? guestSessionMutation.error.message
+                  : "Unable to start a guest session."}
+              </p>
+            ) : null}
 
             <div className="mt-4 flex gap-3 rounded-md border border-[#d8e1db] bg-[#f8faf8] p-4">
               <span
