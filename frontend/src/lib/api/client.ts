@@ -24,7 +24,12 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
+    credentials: "include",
   });
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.dispatchEvent(new Event("auth:unauthorized"));
+  }
 
   if (!response.ok) {
     const message = await getErrorMessage(response);

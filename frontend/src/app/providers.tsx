@@ -4,6 +4,8 @@ import {
   QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useState, type ReactNode } from "react";
 
 type ProvidersProps = {
@@ -11,6 +13,7 @@ type ProvidersProps = {
 };
 
 export function Providers({ children }: ProvidersProps) {
+  const router = useRouter();
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -23,6 +26,18 @@ export function Providers({ children }: ProvidersProps) {
         },
       }),
   );
+
+  useEffect(() => {
+    function handleUnauthorized() {
+      queryClient.clear();
+      router.replace("/");
+    }
+
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+    return () => {
+      window.removeEventListener("auth:unauthorized", handleUnauthorized);
+    };
+  }, [queryClient, router]);
 
   return (
     <QueryClientProvider client={queryClient}>
