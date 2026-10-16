@@ -67,4 +67,23 @@ class AppUserRepositoryTest {
         assertThatThrownBy(() -> appUserRepository.saveAndFlush(new AppUser(email, "Second User")))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
+
+    @Test
+    void rejectsDuplicateEmailIgnoringCaseAndOuterWhitespace() {
+        String email = UUID.randomUUID() + "@example.com";
+        appUserRepository.saveAndFlush(new AppUser(email, "First User"));
+
+        assertThatThrownBy(() -> appUserRepository.saveAndFlush(
+                new AppUser(" " + email.toUpperCase(java.util.Locale.ROOT) + " ", "Second User")
+        )).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void rejectsPasswordCredentialsOnGuestUsers() {
+        AppUser guest = new AppUser(null, "Guest", AppUserType.GUEST);
+        guest.setPasswordHash("should-not-be-stored");
+
+        assertThatThrownBy(() -> appUserRepository.saveAndFlush(guest))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
 }
