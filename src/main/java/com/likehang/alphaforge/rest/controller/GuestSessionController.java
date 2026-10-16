@@ -4,6 +4,7 @@ import com.likehang.alphaforge.rest.dto.response.GuestSessionResponse;
 import com.likehang.alphaforge.service.GuestSessionService;
 import com.likehang.alphaforge.service.UserSessionService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,12 +26,15 @@ public class GuestSessionController {
     }
 
     @PostMapping("/guest")
-    public ResponseEntity<GuestSessionResponse> createGuestSession(HttpServletRequest request) {
+    public ResponseEntity<GuestSessionResponse> createGuestSession(
+            HttpServletRequest request,
+            HttpServletResponse servletResponse
+    ) {
         UUID existingUserId = userSessionService.getUserId(request);
         GuestSessionResponse response = guestSessionService.createOrResumeGuest(existingUserId);
 
         if (!response.userId().equals(existingUserId)) {
-            userSessionService.startSession(request, response.userId());
+            userSessionService.startSession(request, servletResponse, response.userId());
         }
 
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
