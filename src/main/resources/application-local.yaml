@@ -19,6 +19,7 @@ alphaforge:
     user:
       email: ${DEV_USER_EMAIL:dev@alphaforge.local}
       display-name: ${DEV_USER_DISPLAY_NAME:Local Dev User}
+      password: ${DEV_USER_PASSWORD:}
     brokerage-account-long:
       broker-name: ${DEV_BROKER_NAME:Trading 212}
       account-name: ${DEV_BROKERAGE_ACCOUNT_NAME:Main brokerage}
