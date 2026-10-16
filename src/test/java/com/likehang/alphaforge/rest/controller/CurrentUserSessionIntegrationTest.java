@@ -33,6 +33,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.likehang.alphaforge.support.SecurityTestSupport.withCsrf;
+import static com.likehang.alphaforge.support.SecurityTestSupport.clearClientSession;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -86,7 +88,10 @@ class CurrentUserSessionIntegrationTest {
                     .forEach(sessionRepository::deleteById);
             appUserRepository.deleteById(userId);
         }
-        clients.forEach(HttpClient::close);
+        clients.forEach(client -> {
+            clearClientSession(client, sessionRepository);
+            client.close();
+        });
     }
 
     @Test
@@ -229,6 +234,9 @@ class CurrentUserSessionIntegrationTest {
 
     private HttpResponse<String> request(HttpClient client, String method, String path, String json) throws Exception {
         HttpRequest.Builder builder = requestBuilder(path);
+        if (!method.equals("GET")) {
+            withCsrf(client, builder, port);
+        }
         if (json != null) {
             builder.header("Content-Type", "application/json");
         }
@@ -258,7 +266,7 @@ class CurrentUserSessionIntegrationTest {
                 + "Content-Disposition: form-data; name=\"file\"; filename=\"session-test.csv\"\r\n"
                 + "Content-Type: text/csv\r\n\r\n"
                 + CSV.replace("\n", "\r\n") + "\r\n--" + boundary + "--\r\n";
-        HttpRequest request = requestBuilder("/api/brokerage-accounts/" + accountId + "/account-activities/imports")
+        HttpRequest request = withCsrf(client, requestBuilder("/api/brokerage-accounts/" + accountId + "/account-activities/imports"), port)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofString(multipart))
                 .build();

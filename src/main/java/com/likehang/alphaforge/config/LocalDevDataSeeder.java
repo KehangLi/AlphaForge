@@ -12,6 +12,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
@@ -32,14 +33,18 @@ public class LocalDevDataSeeder implements CommandLineRunner {
     private final BrokerageAccountRepository brokerageAccountRepository;
     private final String userEmail;
     private final String userDisplayName;
+    private final String userPassword;
+    private final PasswordEncoder passwordEncoder;
     private final SeedBrokerageAccount longTermAccount;
     private final SeedBrokerageAccount shortTermAccount;
 
     public LocalDevDataSeeder(
             AppUserRepository appUserRepository,
             BrokerageAccountRepository brokerageAccountRepository,
+            PasswordEncoder passwordEncoder,
             @Value("${alphaforge.dev.user.email}") String userEmail,
             @Value("${alphaforge.dev.user.display-name}") String userDisplayName,
+            @Value("${alphaforge.dev.user.password:}") String userPassword,
             @Value("${alphaforge.dev.brokerage-account-long.broker-name}") String longBrokerName,
             @Value("${alphaforge.dev.brokerage-account-long.account-name}") String longAccountName,
             @Value("${alphaforge.dev.brokerage-account-long.base-currency}") String longBaseCurrency,
@@ -51,6 +56,8 @@ public class LocalDevDataSeeder implements CommandLineRunner {
         this.brokerageAccountRepository = brokerageAccountRepository;
         this.userEmail = userEmail.trim();
         this.userDisplayName = userDisplayName.trim();
+        this.userPassword = userPassword;
+        this.passwordEncoder = passwordEncoder;
         this.longTermAccount = new SeedBrokerageAccount(longBrokerName, longAccountName, longBaseCurrency);
         this.shortTermAccount = new SeedBrokerageAccount(shortBrokerName, shortAccountName, shortBaseCurrency);
     }
@@ -62,6 +69,14 @@ public class LocalDevDataSeeder implements CommandLineRunner {
                 .orElseGet(() -> appUserRepository.save(
                         new AppUser(userEmail, userDisplayName, AppUserType.REGISTERED)
                 ));
+
+        if (!userPassword.isBlank() && appUser.getPasswordHash() == null) {
+            if (userPassword.length() < 15 || userPassword.length() > 128) {
+                throw new IllegalArgumentException("DEV_USER_PASSWORD must contain between 15 and 128 characters");
+            }
+            appUser.setPasswordHash(passwordEncoder.encode(userPassword));
+            appUserRepository.save(appUser);
+        }
 
         seedBrokerageAccount(appUser, longTermAccount);
         seedBrokerageAccount(appUser, shortTermAccount);

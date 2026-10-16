@@ -2,8 +2,12 @@ package com.likehang.alphaforge.service;
 
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.session.FindByIndexNameSessionRepository;
 
 import java.util.UUID;
@@ -12,7 +16,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UserSessionServiceTest {
 
-    private final UserSessionService service = new UserSessionService();
+    private final UserSessionService service = new UserSessionService(new HttpSessionSecurityContextRepository());
+
+    @AfterEach
+    void clearContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void doesNotCreateSessionWhenReadingMissingUser() {
@@ -25,7 +34,7 @@ class UserSessionServiceTest {
     @Test
     void rejectsUnexpectedSessionAttributeType() {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.getSession().setAttribute(UserSessionService.USER_ID_ATTRIBUTE, "invalid-user-id");
+        request.getSession().setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, "invalid-context");
 
         assertThat(service.getUserId(request)).isNull();
     }
@@ -36,10 +45,9 @@ class UserSessionServiceTest {
         MockHttpSession oldSession = (MockHttpSession) request.getSession();
         String oldSessionId = oldSession.getId();
         UUID userId = UUID.randomUUID();
-        oldSession.setAttribute(UserSessionService.USER_ID_ATTRIBUTE, userId);
         oldSession.setAttribute("oldAttribute", "oldValue");
 
-        service.startSession(request, userId);
+        service.startSession(request, new MockHttpServletResponse(), userId);
 
         HttpSession newSession = request.getSession(false);
         assertThat(oldSession.isInvalid()).isTrue();

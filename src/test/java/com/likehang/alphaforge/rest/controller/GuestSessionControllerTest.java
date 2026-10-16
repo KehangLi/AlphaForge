@@ -3,7 +3,6 @@ package com.likehang.alphaforge.rest.controller;
 import com.jayway.jsonpath.JsonPath;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
-import com.likehang.alphaforge.service.UserSessionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +11,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.session.Session;
 import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import java.net.CookieManager;
 import java.net.CookiePolicy;
@@ -27,6 +28,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.likehang.alphaforge.support.SecurityTestSupport.withCsrf;
+import static com.likehang.alphaforge.support.SecurityTestSupport.clearClientSession;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -60,7 +63,10 @@ class GuestSessionControllerTest {
                     .forEach(sessionRepository::deleteById);
             appUserRepository.deleteById(userId);
         }
-        clients.forEach(HttpClient::close);
+        clients.forEach(client -> {
+            clearClientSession(client, sessionRepository);
+            client.close();
+        });
     }
 
     @Test
@@ -81,7 +87,8 @@ class GuestSessionControllerTest {
             assertThat(guest.getUserType()).isEqualTo(AppUserType.GUEST);
         });
         Session session = userSession(userId);
-        assertThat(session.<UUID>getAttribute(UserSessionService.USER_ID_ATTRIBUTE)).isEqualTo(userId);
+        SecurityContext context = session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+        assertThat(context.getAuthentication().getPrincipal()).isEqualTo(userId);
         assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofHours(24));
     }
 
@@ -188,7 +195,7 @@ class GuestSessionControllerTest {
     }
 
     private HttpResponse<String> postGuest(HttpClient client) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(guestUri())
+        HttpRequest request = withCsrf(client, HttpRequest.newBuilder(guestUri()), port)
                 .timeout(Duration.ofSeconds(10))
                 .header("Origin", "http://localhost:3000")
                 .POST(HttpRequest.BodyPublishers.noBody())

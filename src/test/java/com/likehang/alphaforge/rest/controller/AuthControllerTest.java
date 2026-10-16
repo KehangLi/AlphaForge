@@ -32,6 +32,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.likehang.alphaforge.support.SecurityTestSupport.withCsrf;
+import static com.likehang.alphaforge.support.SecurityTestSupport.clearClientSession;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -77,7 +79,10 @@ class AuthControllerTest {
                     .forEach(sessionRepository::deleteById);
             appUserRepository.deleteById(userId);
         }
-        clients.forEach(HttpClient::close);
+        clients.forEach(client -> {
+            clearClientSession(client, sessionRepository);
+            client.close();
+        });
     }
 
     @Test
@@ -151,7 +156,7 @@ class AuthControllerTest {
         UUID userId = trackGuest(guestResponse);
         String sessionId = userSession(userId).getId();
         HttpCookie oldCookie = HttpCookie.parse(guestResponse.headers().firstValue("Set-Cookie").orElseThrow()).getFirst();
-        HttpRequest createAccount = requestBuilder("/api/brokerage-accounts")
+        HttpRequest createAccount = withCsrf(client, requestBuilder("/api/brokerage-accounts"), port)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString("""
                         {"brokerName":"Trading 212","accountName":"Logout test","baseCurrency":"EUR"}
@@ -223,7 +228,11 @@ class AuthControllerTest {
     }
 
     private HttpResponse<String> send(HttpClient client, String method, String path) throws Exception {
-        HttpRequest request = requestBuilder(path).method(method, HttpRequest.BodyPublishers.noBody()).build();
+        HttpRequest.Builder builder = requestBuilder(path);
+        if (!method.equals("GET")) {
+            withCsrf(client, builder, port);
+        }
+        HttpRequest request = builder.method(method, HttpRequest.BodyPublishers.noBody()).build();
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 

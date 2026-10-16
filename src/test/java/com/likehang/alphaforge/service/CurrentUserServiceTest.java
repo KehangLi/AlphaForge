@@ -6,6 +6,7 @@ import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -16,13 +17,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static com.likehang.alphaforge.support.SecurityTestSupport.authenticateRequest;
 
 class CurrentUserServiceTest {
 
     private final AppUserRepository appUserRepository = mock(AppUserRepository.class);
     private final MockHttpServletRequest request = new MockHttpServletRequest();
     private final CurrentUserService service = new CurrentUserService(
-            appUserRepository, new UserSessionService(), request
+            appUserRepository, new UserSessionService(new HttpSessionSecurityContextRepository()), request
     );
 
     @Test
@@ -30,7 +32,7 @@ class CurrentUserServiceTest {
         UUID userId = UUID.randomUUID();
         AppUser user = new AppUser(null, "Guest", AppUserType.GUEST);
         user.setId(userId);
-        request.getSession().setAttribute(UserSessionService.USER_ID_ATTRIBUTE, userId);
+        authenticateRequest(request, userId);
         when(appUserRepository.findById(userId)).thenReturn(Optional.of(user));
 
         assertThat(service.getCurrentUserId()).isEqualTo(userId);
@@ -42,7 +44,7 @@ class CurrentUserServiceTest {
         UUID userId = UUID.randomUUID();
         AppUser user = new AppUser("registered@example.com", "Registered User", AppUserType.REGISTERED);
         user.setId(userId);
-        request.getSession().setAttribute(UserSessionService.USER_ID_ATTRIBUTE, userId);
+        authenticateRequest(request, userId);
         when(appUserRepository.findById(userId)).thenReturn(Optional.of(user));
 
         var response = service.getCurrentUser();
@@ -70,7 +72,7 @@ class CurrentUserServiceTest {
 
     @Test
     void rejectsInvalidUserIdAttribute() {
-        request.getSession().setAttribute(UserSessionService.USER_ID_ATTRIBUTE, "invalid-user-id");
+        request.getSession().setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, "invalid-context");
 
         assertUnauthorized();
         verifyNoInteractions(appUserRepository);
@@ -79,7 +81,7 @@ class CurrentUserServiceTest {
     @Test
     void rejectsSessionWhoseUserWasDeleted() {
         UUID userId = UUID.randomUUID();
-        request.getSession().setAttribute(UserSessionService.USER_ID_ATTRIBUTE, userId);
+        authenticateRequest(request, userId);
         when(appUserRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertUnauthorized();
