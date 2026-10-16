@@ -9,6 +9,7 @@ erDiagram
         uuid id PK
         varchar user_type "GUEST or REGISTERED"
         varchar email UK
+        varchar password_hash
         varchar display_name
         timestamptz created_at
         timestamptz updated_at
