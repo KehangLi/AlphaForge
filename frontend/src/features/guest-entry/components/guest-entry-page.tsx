@@ -19,14 +19,17 @@ export function GuestEntryPage() {
   return (
     <main className="min-h-screen bg-[#eef3ef] text-[#18221d]">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-6 lg:px-10">
-        <header className="flex items-center justify-between border-b border-[#cfd9d2] pb-5">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#cfd9d2] pb-5">
           <Link
             className="text-sm font-semibold uppercase tracking-[0.18em] text-[#3e6f57]"
             href="/"
           >
             AlphaForge
           </Link>
-          <span className="text-sm text-[#65746a]">Private finance workspace</span>
+          <nav aria-label="Account" className="flex items-center gap-4 text-sm font-semibold">
+            <Link className="rounded-sm text-[#526258] hover:text-[#173f35] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3e6f57]" href="/login">Sign in</Link>
+            <Link className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#bac8bf] px-3 text-[#173f35] transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3e6f57]" href="/register">Create account</Link>
+          </nav>
         </header>
 
         <section className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-24">

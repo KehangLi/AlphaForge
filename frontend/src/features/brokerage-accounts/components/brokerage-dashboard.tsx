@@ -6,7 +6,7 @@ import {
   GuestAccountEmptyState,
   GuestActivityEmptyState,
 } from "@/features/guest-session/components/guest-onboarding-states";
-import { GuestSessionMenu } from "@/features/guest-session/components/guest-session-menu";
+import { SessionMenu } from "@/features/auth/components/session-menu";
 import { AccountManagementDialog } from "./account-management-dialog";
 import { AccountActivitiesTable } from "./account-activities-table";
 import { AccountToolbar } from "./account-toolbar";
@@ -46,7 +46,7 @@ export function BrokerageDashboard() {
                 onImportStarted={() => workspace.setActivityPage(0)}
               />
             ) : null}
-            <GuestSessionMenu />
+            <SessionMenu />
           </div>
         </header>
 
