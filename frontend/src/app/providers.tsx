@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useState, type ReactNode } from "react";
 
+import { AuthPreviewProvider } from "@/features/auth/preview/auth-preview-provider";
+
 type ProvidersProps = {
   children: ReactNode;
 };
@@ -41,7 +43,7 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <AuthPreviewProvider>{children}</AuthPreviewProvider>
     </QueryClientProvider>
   );
 }
