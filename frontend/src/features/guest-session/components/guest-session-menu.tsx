@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -50,6 +51,9 @@ export function GuestSessionMenu() {
           <p className="px-3 pb-2 text-xs leading-5 text-[#65746a]">
             Your guest data is temporary for this session.
           </p>
+          <Link className="block rounded-md px-3 py-2 text-sm font-semibold text-[#173f35] hover:bg-[#eef3ef]" href="/login" role="menuitem">Sign in</Link>
+          <Link className="block rounded-md px-3 py-2 text-sm font-semibold text-[#173f35] hover:bg-[#eef3ef]" href="/register" role="menuitem">Create account</Link>
+          <p className="border-b border-[#e3e9e5] px-3 pb-3 pt-1 text-xs leading-5 text-[#65746a]">A new account starts a separate workspace.</p>
           <button
             className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-[#9a3412] transition hover:bg-[#fff1eb]"
             onClick={handleEndGuestExperience}
