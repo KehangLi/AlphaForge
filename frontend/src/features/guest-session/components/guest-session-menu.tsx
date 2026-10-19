@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,6 @@ import { Dialog } from "@/components/ui/dialog";
 import { useLogoutMutation } from "@/features/auth/queries";
 
 export function GuestSessionMenu() {
-  const router = useRouter();
   const logoutMutation = useLogoutMutation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
@@ -18,12 +16,7 @@ export function GuestSessionMenu() {
   }
 
   function handleConfirmEndGuestExperience() {
-    logoutMutation.mutate(undefined, {
-      onSuccess: () => {
-        setIsEndDialogOpen(false);
-        router.replace("/");
-      },
-    });
+    logoutMutation.mutate();
   }
 
   return (
