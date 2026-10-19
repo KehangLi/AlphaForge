@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useState, type ReactNode } from "react";
 
-import { AuthPreviewProvider } from "@/features/auth/preview/auth-preview-provider";
+import { authQueryKeys, removeCachedUserData, replaceCachedSession } from "@/features/auth/session-cache";
 
 type ProvidersProps = {
   children: ReactNode;
@@ -31,19 +31,26 @@ export function Providers({ children }: ProvidersProps) {
 
   useEffect(() => {
     function handleUnauthorized() {
-      queryClient.clear();
-      router.replace("/");
+      void replaceCachedSession(queryClient, null);
+      router.replace("/login");
+    }
+
+    function handleSessionChanged() {
+      removeCachedUserData(queryClient);
+      void queryClient.resetQueries({ queryKey: authQueryKeys.session() });
     }
 
     window.addEventListener("auth:unauthorized", handleUnauthorized);
+    window.addEventListener("auth:session-changed", handleSessionChanged);
     return () => {
       window.removeEventListener("auth:unauthorized", handleUnauthorized);
+      window.removeEventListener("auth:session-changed", handleSessionChanged);
     };
   }, [queryClient, router]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthPreviewProvider>{children}</AuthPreviewProvider>
+      {children}
     </QueryClientProvider>
   );
 }
