@@ -3,11 +3,12 @@
 import { ArrowRight, CircleAlert, LoaderCircle, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
 
-import { useAuthPreview } from "../preview/auth-preview-provider";
+import { useLoginMutation, useRegisterMutation } from "../queries";
 import { AuthFormField } from "./auth-form-field";
 
 type AuthMode = "login" | "register";
@@ -17,26 +18,26 @@ type FormErrors = Partial<Record<FieldName, string>>;
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
-  const preview = useAuthPreview();
+  const loginMutation = useLoginMutation();
+  const registerMutation = useRegisterMutation();
   const [values, setValues] = useState<FormValues>({ displayName: "", email: "", password: "" });
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isPending, setIsPending] = useState(false);
-  const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRegister = mode === "register";
+  const mutation = isRegister ? registerMutation : loginMutation;
+  const isPending = mutation.isPending;
   const errors = validateForm(mode, values);
   const visibleErrors = Object.entries(errors).filter(([field]) => isSubmitted || touched[field as FieldName]);
-
-  useEffect(() => () => {
-    if (pendingTimer.current) clearTimeout(pendingTimer.current);
-  }, []);
 
   function fieldProps(field: FieldName) {
     return {
       value: values[field],
       disabled: isPending,
       error: isSubmitted || touched[field] ? errors[field] : undefined,
-      onChange: (value: string) => setValues((current) => ({ ...current, [field]: value })),
+      onChange: (value: string) => {
+        mutation.reset();
+        setValues((current) => ({ ...current, [field]: value }));
+      },
       onBlur: () => setTouched((current) => ({ ...current, [field]: true })),
     };
   }
@@ -52,14 +53,17 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       return;
     }
 
-    setIsPending(true);
-    // UI-only submission. No credentials are sent, persisted, or added to the auth cache.
-    pendingTimer.current = setTimeout(() => {
-      const displayName = isRegister ? values.displayName.trim() : nameFromEmail(values.email);
-      preview.start(displayName, mode);
+    const credentials = { email: values.email.trim(), password: values.password };
+    const onSuccess = () => {
       setValues((current) => ({ ...current, password: "" }));
-      router.push("/app/preview");
-    }, 650);
+      router.replace("/app");
+    };
+
+    if (isRegister) {
+      registerMutation.mutate({ ...credentials, displayName: values.displayName.trim() }, { onSuccess });
+    } else {
+      loginMutation.mutate(credentials, { onSuccess });
+    }
   }
 
   return (
@@ -116,6 +120,15 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           </div>
         ) : null}
 
+        {mutation.isError ? (
+          <div className="mb-4 flex items-start gap-2 rounded-md border border-[#e4c8c4] bg-[#fcf1ef] px-3 py-2.5 text-sm leading-5 text-[#a3352e]" role="alert">
+            <CircleAlert aria-hidden="true" className="mt-0.5 shrink-0" size={16} />
+            <p>{mutation.error instanceof ApiError
+              ? mutation.error.message
+              : "Unable to reach AlphaForge. Please try again."}</p>
+          </div>
+        ) : null}
+
         <Button className="mt-1 flex h-12 w-full items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3e6f57]" disabled={isPending} type="submit">
           {isPending ? (
             <><LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" size={17} />{isRegister ? "Creating account..." : "Signing in..."}</>
@@ -158,9 +171,4 @@ function validateForm(mode: AuthMode, values: FormValues): FormErrors {
   else if (values.password.length > 128) errors.password = "Use 128 characters or fewer.";
 
   return errors;
-}
-
-function nameFromEmail(email: string) {
-  const name = email.trim().split("@")[0].split(/[._+-]/).filter(Boolean)[0];
-  return name ? name[0].toUpperCase() + name.slice(1) : "Investor";
 }

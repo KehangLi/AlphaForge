@@ -4,13 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { useCreateGuestSessionMutation } from "@/features/auth/queries";
+import { useCreateGuestSessionMutation, useCurrentSessionQuery } from "@/features/auth/queries";
 
 export function GuestEntryPage() {
   const router = useRouter();
   const guestSessionMutation = useCreateGuestSessionMutation();
+  const sessionQuery = useCurrentSessionQuery();
+  const session = sessionQuery.data;
+  const isRegistered = session?.userType === "REGISTERED";
 
   function handleTryAsGuest() {
+    if (session) {
+      router.push("/app");
+      return;
+    }
     guestSessionMutation.mutate(undefined, {
       onSuccess: () => router.push("/app"),
     });
@@ -27,8 +34,12 @@ export function GuestEntryPage() {
             AlphaForge
           </Link>
           <nav aria-label="Account" className="flex items-center gap-4 text-sm font-semibold">
+            {isRegistered ? (
+              <Link className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#bac8bf] px-3 text-[#173f35] hover:bg-white" href="/app">Open workspace</Link>
+            ) : <>
             <Link className="rounded-sm text-[#526258] hover:text-[#173f35] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3e6f57]" href="/login">Sign in</Link>
             <Link className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#bac8bf] px-3 text-[#173f35] transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3e6f57]" href="/register">Create account</Link>
+            </>}
           </nav>
         </header>
 
@@ -53,27 +64,30 @@ export function GuestEntryPage() {
                   Quick start
                 </p>
                 <h2 className="mt-3 text-2xl font-semibold text-[#18221d]">
-                  Explore as a guest
+                  {isRegistered ? "Your workspace" : "Explore as a guest"}
                 </h2>
               </div>
               <span className="rounded-full bg-[#edf5ef] px-3 py-1 text-xs font-semibold text-[#2d654b]">
-                No account needed
+                {isRegistered ? "Signed in" : "No account needed"}
               </span>
             </div>
 
             <p className="mt-4 text-sm leading-6 text-[#65746a]">
-              Enter the workspace with a temporary guest session. You can
-              create an account and import a CSV when you are ready.
+              {isRegistered
+                ? "Continue to your brokerage accounts and imported activity."
+                : "Enter the workspace with a guest session. Add a brokerage account and try importing a CSV."}
             </p>
 
             <Button
               className="mt-6 w-full justify-center"
-              disabled={guestSessionMutation.isPending}
+              disabled={guestSessionMutation.isPending || sessionQuery.isPending}
               onClick={handleTryAsGuest}
             >
-              {guestSessionMutation.isPending
+              {sessionQuery.isPending
+                ? "Checking session..."
+                : guestSessionMutation.isPending
                 ? "Starting session..."
-                : "Try as guest"}
+                : session ? "Continue to workspace" : "Try as guest"}
             </Button>
             {guestSessionMutation.isError ? (
               <p className="mt-3 text-sm font-medium text-[#9a3412]">
@@ -83,7 +97,7 @@ export function GuestEntryPage() {
               </p>
             ) : null}
 
-            <div className="mt-4 flex gap-3 rounded-md border border-[#d8e1db] bg-[#f8faf8] p-4">
+            {!isRegistered ? <div className="mt-4 flex gap-3 rounded-md border border-[#d8e1db] bg-[#f8faf8] p-4">
               <span
                 aria-hidden="true"
                 className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#dce9df] text-xs font-bold text-[#2d654b]"
@@ -93,7 +107,7 @@ export function GuestEntryPage() {
               <p className="text-sm leading-5 text-[#65746a]">
                 Guest data is temporary and tied to this browser session.
               </p>
-            </div>
+            </div> : null}
           </div>
         </section>
 
