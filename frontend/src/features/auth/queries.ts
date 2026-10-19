@@ -6,19 +6,26 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
-import { createGuestSession, getCurrentSession, logout } from "./api";
+import { createGuestSession, getCurrentSession, login, logout, register } from "./api";
+import { authQueryKeys, removeCachedUserData, replaceCachedSession } from "./session-cache";
+import type { AuthSession } from "./types";
 
-export const authQueryKeys = {
-  all: ["auth"] as const,
-  session: () => [...authQueryKeys.all, "session"] as const,
-};
+export { authQueryKeys } from "./session-cache";
 
 export function useCurrentSessionQuery() {
+  const queryClient = useQueryClient();
   return useQuery({
-    queryFn: getCurrentSession,
+    queryFn: async ({ signal }) => {
+      const session = await getCurrentSession(signal);
+      const previous = queryClient.getQueryData<AuthSession | null>(authQueryKeys.session());
+      // The cookie may have changed in another browser tab.
+      if (previous?.userId !== session?.userId) removeCachedUserData(queryClient);
+      return session;
+    },
     queryKey: authQueryKeys.session(),
     retry: false,
-    staleTime: 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: "always",
   });
 }
 
@@ -26,10 +33,31 @@ export function useCreateGuestSessionMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...authQueryKeys.all, "guest"],
     mutationFn: createGuestSession,
-    onSuccess: (session) => {
-      queryClient.setQueryData(authQueryKeys.session(), session);
-    },
+    onSuccess: (session) => replaceCachedSession(queryClient, session),
+  });
+}
+
+export function useLoginMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: [...authQueryKeys.all, "login"],
+    mutationFn: login,
+    retry: false,
+    gcTime: 0,
+    onSuccess: (session) => replaceCachedSession(queryClient, session),
+  });
+}
+
+export function useRegisterMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: [...authQueryKeys.all, "register"],
+    mutationFn: register,
+    retry: false,
+    gcTime: 0,
+    onSuccess: (session) => replaceCachedSession(queryClient, session),
   });
 }
 
@@ -37,9 +65,12 @@ export function useLogoutMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: [...authQueryKeys.all, "logout"],
     mutationFn: logout,
-    onSuccess: () => {
-      queryClient.clear();
+    onSuccess: async () => {
+      await queryClient.cancelQueries();
+      // A new document also discards credential mutations and cached workspace state.
+      window.location.replace("/");
     },
   });
 }

@@ -5,3 +5,12 @@ export type AuthSession = {
   userType: AppUserType;
   displayName: string;
 };
+
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type RegisterRequest = LoginRequest & {
+  displayName: string;
+};
