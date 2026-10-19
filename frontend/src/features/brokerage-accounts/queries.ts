@@ -7,6 +7,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { getCachedUserId, isCurrentUser } from "@/features/auth/session-cache";
+
 import {
   createBrokerageAccount,
   deleteBrokerageAccount,
@@ -51,7 +53,7 @@ export const importBatchQueryKeys = {
 
 export function useBrokerageAccountsQuery() {
   return useQuery({
-    queryFn: getBrokerageAccounts,
+    queryFn: ({ signal }) => getBrokerageAccounts(signal),
     queryKey: brokerageAccountQueryKeys.list(),  // so, here is ["brokerage-accounts", "list"]
   });
 }
@@ -61,7 +63,9 @@ export function useCreateBrokerageAccountMutation() {
 
   return useMutation({
     mutationFn: createBrokerageAccount,
-    onSuccess: async (createdAccount) => {
+    onMutate: () => getCachedUserId(queryClient),
+    onSuccess: async (createdAccount, _request, userId) => {
+      if (!isCurrentUser(queryClient, userId)) return;
       queryClient.setQueryData<BrokerageAccountListResponse[]>(   //cache immediately change to new data
         brokerageAccountQueryKeys.list(),
         (currentAccounts = []) => [
@@ -82,7 +86,9 @@ export function useDeleteBrokerageAccountMutation() {
 
   return useMutation({
     mutationFn: deleteBrokerageAccount,
-    onSuccess: async (_result, brokerageAccountId) => {
+    onMutate: () => getCachedUserId(queryClient),  // the return value will be passed as the third argument
+    onSuccess: async (_result, brokerageAccountId, userId) => {
+      if (!isCurrentUser(queryClient, userId)) return;
       queryClient.setQueryData<BrokerageAccountListResponse[]>(
         brokerageAccountQueryKeys.list(),
         (currentAccounts) =>
@@ -116,7 +122,7 @@ export function useAccountActivitiesQuery({
   return useQuery({
     enabled: brokerageAccountId.length > 0,
     placeholderData: keepPreviousData,
-    queryFn: () => getAccountActivities(brokerageAccountId, { page, size }),
+    queryFn: ({ signal }) => getAccountActivities(brokerageAccountId, { page, size }, signal),
     queryKey: accountActivityQueryKeys.list(brokerageAccountId, page, size),
   });
 }
@@ -135,7 +141,7 @@ export function useImportBatchesQuery({
   return useQuery({
     enabled: brokerageAccountId.length > 0,
     placeholderData: keepPreviousData,
-    queryFn: () => getImportBatches(brokerageAccountId, { page, size }),
+    queryFn: ({ signal }) => getImportBatches(brokerageAccountId, { page, size }, signal),
     queryKey: importBatchQueryKeys.list(brokerageAccountId, page, size),
   });
 }
@@ -152,7 +158,9 @@ export function useImportAccountActivitiesMutation() {
   return useMutation({
     mutationFn: ({ brokerageAccountId, file }: ImportAccountActivitiesParams) =>
       importAccountActivities(file, brokerageAccountId),
-    onSuccess: async (result) => {
+    onMutate: () => getCachedUserId(queryClient),
+    onSuccess: async (result, _request, userId) => {
+      if (!isCurrentUser(queryClient, userId)) return;
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: accountActivityQueryKeys.byAccount(result.brokerageAccountId),
@@ -176,7 +184,9 @@ export function useDeleteImportBatchMutation() {
   return useMutation({
     mutationFn: ({ brokerageAccountId, importBatchId }: DeleteImportBatchParams) =>
       deleteImportBatch(brokerageAccountId, importBatchId),
-    onSuccess: async (_result, variables) => {
+    onMutate: () => getCachedUserId(queryClient),
+    onSuccess: async (_result, variables, userId) => {
+      if (!isCurrentUser(queryClient, userId)) return;
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: importBatchQueryKeys.byAccount(variables.brokerageAccountId),

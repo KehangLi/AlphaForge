@@ -8,8 +8,8 @@ import type {
   ImportBatchPageResponse,
 } from "./types";
 
-export function getBrokerageAccounts(): Promise<BrokerageAccountListResponse[]> {
-  return apiRequest<BrokerageAccountListResponse[]>("/api/brokerage-accounts");
+export function getBrokerageAccounts(signal?: AbortSignal): Promise<BrokerageAccountListResponse[]> {
+  return apiRequest<BrokerageAccountListResponse[]>("/api/brokerage-accounts", { signal });
 }
 
 export function createBrokerageAccount(
@@ -39,6 +39,7 @@ type AccountActivityQuery = {
 export function getAccountActivities(
   brokerageAccountId: string,
   query: AccountActivityQuery = {},
+  signal?: AbortSignal,
 ): Promise<AccountActivityPageResponse> {
   const searchParams = new URLSearchParams();
 
@@ -53,7 +54,7 @@ export function getAccountActivities(
   const queryString = searchParams.toString();
   const path = `/api/brokerage-accounts/${encodeURIComponent(brokerageAccountId)}/account-activities${queryString ? `?${queryString}` : ""}`;
 
-  return apiRequest<AccountActivityPageResponse>(path);
+  return apiRequest<AccountActivityPageResponse>(path, { signal });
 }
 
 export function importAccountActivities(
@@ -82,6 +83,7 @@ type ImportBatchQuery = {
 export function getImportBatches(
   brokerageAccountId: string,
   query: ImportBatchQuery = {},
+  signal?: AbortSignal,
 ): Promise<ImportBatchPageResponse> {
   const searchParams = new URLSearchParams();
 
@@ -96,7 +98,7 @@ export function getImportBatches(
   const queryString = searchParams.toString();
   const path = `/api/brokerage-accounts/${encodeURIComponent(brokerageAccountId)}/import-batches${queryString ? `?${queryString}` : ""}`;
 
-  return apiRequest<ImportBatchPageResponse>(path);
+  return apiRequest<ImportBatchPageResponse>(path, { signal });
 }
 
 export function deleteImportBatch(
