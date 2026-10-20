@@ -3,6 +3,7 @@ package com.likehang.alphaforge.rest.controller;
 import com.jayway.jsonpath.JsonPath;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
+import com.likehang.alphaforge.support.AbstractPostgresIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,24 +23,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.likehang.alphaforge.support.SecurityTestSupport.withCsrf;
-import static com.likehang.alphaforge.support.SecurityTestSupport.clearClientSession;
 
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {
-                "alphaforge.dev.seed-data.enabled=false",
-                "alphaforge.cors.allowed-origins=http://localhost:3000",
-                "server.servlet.session.cookie.secure=false"
-        }
-)
-class GuestSessionControllerTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class GuestSessionControllerTest extends AbstractPostgresIntegrationTest {
 
     @Value("${local.server.port}")
     private int port;
@@ -53,20 +44,11 @@ class GuestSessionControllerTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private final Set<UUID> createdUserIds = new HashSet<>();
     private final List<HttpClient> clients = new ArrayList<>();
 
     @AfterEach
-    void cleanUp() {
-        for (UUID userId : createdUserIds) {
-            sessionRepository.findByPrincipalName(userId.toString()).keySet()
-                    .forEach(sessionRepository::deleteById);
-            appUserRepository.deleteById(userId);
-        }
-        clients.forEach(client -> {
-            clearClientSession(client, sessionRepository);
-            client.close();
-        });
+    void closeClients() {
+        clients.forEach(HttpClient::close);
     }
 
     @Test
@@ -209,7 +191,6 @@ class GuestSessionControllerTest {
 
     private UUID guestUserId(HttpResponse<String> response) {
         UUID userId = UUID.fromString(JsonPath.read(response.body(), "$.userId"));
-        createdUserIds.add(userId);
         return userId;
     }
 

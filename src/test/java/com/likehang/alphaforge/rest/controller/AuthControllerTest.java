@@ -5,7 +5,7 @@ import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
-import com.likehang.alphaforge.service.BrokerageAccountService;
+import com.likehang.alphaforge.support.AbstractPostgresIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,26 +24,15 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.likehang.alphaforge.support.SecurityTestSupport.withCsrf;
-import static com.likehang.alphaforge.support.SecurityTestSupport.clearClientSession;
 
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {
-                "alphaforge.dev.seed-data.enabled=false",
-                "alphaforge.cors.allowed-origins=http://localhost:3000",
-                "server.servlet.session.cookie.secure=false"
-        }
-)
-class AuthControllerTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class AuthControllerTest extends AbstractPostgresIntegrationTest {
 
     @Value("${local.server.port}")
     private int port;
@@ -60,29 +49,11 @@ class AuthControllerTest {
     @Autowired
     private BrokerageAccountRepository brokerageAccountRepository;
 
-    @Autowired
-    private BrokerageAccountService brokerageAccountService;
-
-    private final Set<UUID> userIds = new HashSet<>();
-    private final Map<UUID, UUID> accountOwners = new HashMap<>();
     private final List<HttpClient> clients = new ArrayList<>();
 
     @AfterEach
-    void cleanUp() {
-        accountOwners.forEach((accountId, userId) -> {
-            if (brokerageAccountRepository.existsById(accountId)) {
-                brokerageAccountService.deleteBrokerageAccount(userId, accountId);
-            }
-        });
-        for (UUID userId : userIds) {
-            sessionRepository.findByPrincipalName(userId.toString()).keySet()
-                    .forEach(sessionRepository::deleteById);
-            appUserRepository.deleteById(userId);
-        }
-        clients.forEach(client -> {
-            clearClientSession(client, sessionRepository);
-            client.close();
-        });
+    void closeClients() {
+        clients.forEach(HttpClient::close);
     }
 
     @Test
@@ -153,7 +124,7 @@ class AuthControllerTest {
     void logoutClearsCookieRejectsReplayAndPreservesUserData() throws Exception {
         HttpClient client = newClient();
         HttpResponse<String> guestResponse = send(client, "POST", "/api/auth/guest");
-        UUID userId = trackGuest(guestResponse);
+        UUID userId = guestUserId(guestResponse);
         String sessionId = userSession(userId).getId();
         HttpCookie oldCookie = HttpCookie.parse(guestResponse.headers().firstValue("Set-Cookie").orElseThrow()).getFirst();
         HttpRequest createAccount = withCsrf(client, requestBuilder("/api/brokerage-accounts"), port)
@@ -165,7 +136,6 @@ class AuthControllerTest {
         HttpResponse<String> accountResponse = client.send(createAccount, HttpResponse.BodyHandlers.ofString());
         assertThat(accountResponse.statusCode()).isEqualTo(201);
         UUID accountId = UUID.fromString(JsonPath.read(accountResponse.body(), "$.id"));
-        accountOwners.put(accountId, userId);
 
         HttpResponse<String> response = send(client, "POST", "/api/auth/logout");
 
@@ -237,13 +207,12 @@ class AuthControllerTest {
     }
 
     private UUID createGuest(HttpClient client) throws Exception {
-        return trackGuest(send(client, "POST", "/api/auth/guest"));
+        return guestUserId(send(client, "POST", "/api/auth/guest"));
     }
 
-    private UUID trackGuest(HttpResponse<String> response) {
+    private UUID guestUserId(HttpResponse<String> response) {
         assertThat(response.statusCode()).isEqualTo(200);
         UUID userId = UUID.fromString(JsonPath.read(response.body(), "$.userId"));
-        userIds.add(userId);
         return userId;
     }
 

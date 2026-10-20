@@ -2,6 +2,7 @@ package com.likehang.alphaforge.repository;
 
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.AppUserType;
+import com.likehang.alphaforge.support.AbstractPostgresIntegrationTest;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Transactional
-class AppUserRepositoryTest {
+class AppUserRepositoryTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private AppUserRepository appUserRepository;
