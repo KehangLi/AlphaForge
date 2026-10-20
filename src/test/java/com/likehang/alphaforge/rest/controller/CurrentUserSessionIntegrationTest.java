@@ -4,8 +4,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
-import com.likehang.alphaforge.repository.BrokerageAccountRepository;
-import com.likehang.alphaforge.service.BrokerageAccountService;
+import com.likehang.alphaforge.support.AbstractPostgresIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,26 +24,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.likehang.alphaforge.support.SecurityTestSupport.withCsrf;
-import static com.likehang.alphaforge.support.SecurityTestSupport.clearClientSession;
 
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {
-                "alphaforge.dev.seed-data.enabled=false",
-                "alphaforge.cors.allowed-origins=http://localhost:3000",
-                "server.servlet.session.cookie.secure=false"
-        }
-)
-class CurrentUserSessionIntegrationTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final String ACCOUNT_REQUEST = """
             {"brokerName":"Trading 212","accountName":"Session account","baseCurrency":"EUR"}
@@ -61,37 +48,16 @@ class CurrentUserSessionIntegrationTest {
     private AppUserRepository appUserRepository;
 
     @Autowired
-    private BrokerageAccountRepository brokerageAccountRepository;
-
-    @Autowired
-    private BrokerageAccountService brokerageAccountService;
-
-    @Autowired
     private JdbcIndexedSessionRepository sessionRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private final Set<UUID> userIds = new HashSet<>();
-    private final Map<UUID, UUID> accountOwners = new HashMap<>();
     private final List<HttpClient> clients = new ArrayList<>();
 
     @AfterEach
-    void cleanUp() {
-        accountOwners.forEach((accountId, userId) -> {
-            if (brokerageAccountRepository.existsById(accountId)) {
-                brokerageAccountService.deleteBrokerageAccount(userId, accountId);
-            }
-        });
-        for (UUID userId : userIds) {
-            sessionRepository.findByPrincipalName(userId.toString()).keySet()
-                    .forEach(sessionRepository::deleteById);
-            appUserRepository.deleteById(userId);
-        }
-        clients.forEach(client -> {
-            clearClientSession(client, sessionRepository);
-            client.close();
-        });
+    void closeClients() {
+        clients.forEach(HttpClient::close);
     }
 
     @Test
@@ -114,7 +80,6 @@ class CurrentUserSessionIntegrationTest {
     @Test
     void doesNotAcceptClientSuppliedUserIdAsAuthentication() throws Exception {
         AppUser user = appUserRepository.saveAndFlush(new AppUser(UUID.randomUUID() + "@example.com", "Test User"));
-        userIds.add(user.getId());
         HttpRequest request = requestBuilder("/api/brokerage-accounts?userId=" + user.getId())
                 .header("X-User-Id", user.getId().toString())
                 .GET()
@@ -164,16 +129,16 @@ class CurrentUserSessionIntegrationTest {
     @Test
     void isolatesAccountsImportsAndActivitiesBetweenGuests() throws Exception {
         HttpClient firstClient = newClient();
-        UUID firstUserId = createGuest(firstClient);
-        UUID firstAccountId = createAccount(firstClient, firstUserId);
+        createGuest(firstClient);
+        UUID firstAccountId = createAccount(firstClient);
         HttpResponse<String> importResponse = uploadCsv(firstClient, firstAccountId);
         assertThat(importResponse.statusCode()).isEqualTo(201);
         assertThat(JsonPath.<String>read(importResponse.body(), "$.status")).isEqualTo("COMPLETED");
         UUID batchId = UUID.fromString(JsonPath.read(importResponse.body(), "$.importBatchId"));
 
         HttpClient secondClient = newClient();
-        UUID secondUserId = createGuest(secondClient);
-        UUID secondAccountId = createAccount(secondClient, secondUserId);
+        createGuest(secondClient);
+        UUID secondAccountId = createAccount(secondClient);
         String firstAccountPath = "/api/brokerage-accounts/" + firstAccountId;
         String activitiesPath = firstAccountPath + "/account-activities";
         String batchesPath = firstAccountPath + "/import-batches";
@@ -205,7 +170,7 @@ class CurrentUserSessionIntegrationTest {
         user.setEmail(userId + "@example.com");
         appUserRepository.saveAndFlush(user);
 
-        UUID accountId = createAccount(client, userId);
+        UUID accountId = createAccount(client);
 
         assertListedAccount(client, accountId);
         assertThat(jdbcTemplate.queryForObject(
@@ -248,15 +213,13 @@ class CurrentUserSessionIntegrationTest {
         HttpResponse<String> response = request(client, "POST", "/api/auth/guest");
         assertThat(response.statusCode()).isEqualTo(200);
         UUID userId = UUID.fromString(JsonPath.read(response.body(), "$.userId"));
-        userIds.add(userId);
         return userId;
     }
 
-    private UUID createAccount(HttpClient client, UUID userId) throws Exception {
+    private UUID createAccount(HttpClient client) throws Exception {
         HttpResponse<String> response = request(client, "POST", "/api/brokerage-accounts", ACCOUNT_REQUEST);
         assertThat(response.statusCode()).isEqualTo(201);
         UUID accountId = UUID.fromString(JsonPath.read(response.body(), "$.id"));
-        accountOwners.put(accountId, userId);
         return accountId;
     }
 

@@ -7,15 +7,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 
-import java.net.CookieManager;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,15 +28,6 @@ public final class SecurityTestSupport {
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(200);
         return builder.header(JsonPath.read(response.body(), "$.headerName"), JsonPath.read(response.body(), "$.token"));
-    }
-
-    public static void clearClientSession(HttpClient client, JdbcIndexedSessionRepository repository) {
-        CookieManager cookies = (CookieManager) client.cookieHandler().orElseThrow();
-        cookies.getCookieStore().getCookies().stream()
-                .filter(cookie -> cookie.getName().equals("ALPHAFORGE_SESSION"))
-                .forEach(cookie -> repository.deleteById(new String(
-                        Base64.getDecoder().decode(cookie.getValue()), StandardCharsets.UTF_8
-                )));
     }
 
     public static void authenticateRequest(HttpServletRequest request, UUID userId) {

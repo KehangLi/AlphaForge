@@ -5,7 +5,7 @@ import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
-import com.likehang.alphaforge.service.BrokerageAccountService;
+import com.likehang.alphaforge.support.AbstractPostgresIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,27 +27,16 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
-import static com.likehang.alphaforge.support.SecurityTestSupport.clearClientSession;
 import static com.likehang.alphaforge.support.SecurityTestSupport.withCsrf;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {
-                "alphaforge.dev.seed-data.enabled=false",
-                "alphaforge.cors.allowed-origins=http://localhost:3000",
-                "server.servlet.session.cookie.secure=false"
-        }
-)
-class RegistrationLoginIntegrationTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class RegistrationLoginIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final String PASSWORD = "A long test passphrase 123!";
 
@@ -61,9 +50,6 @@ class RegistrationLoginIntegrationTest {
     private BrokerageAccountRepository brokerageAccountRepository;
 
     @Autowired
-    private BrokerageAccountService brokerageAccountService;
-
-    @Autowired
     private JdbcIndexedSessionRepository sessionRepository;
 
     @Autowired
@@ -72,25 +58,11 @@ class RegistrationLoginIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private final Set<UUID> userIds = new HashSet<>();
-    private final Map<UUID, UUID> accountOwners = new HashMap<>();
     private final List<HttpClient> clients = new ArrayList<>();
 
     @AfterEach
-    void cleanUp() {
-        accountOwners.forEach((accountId, userId) -> {
-            if (brokerageAccountRepository.existsById(accountId)) {
-                brokerageAccountService.deleteBrokerageAccount(userId, accountId);
-            }
-        });
-        for (UUID userId : userIds) {
-            sessionRepository.findByPrincipalName(userId.toString()).keySet().forEach(sessionRepository::deleteById);
-            appUserRepository.deleteById(userId);
-        }
-        clients.forEach(client -> {
-            clearClientSession(client, sessionRepository);
-            client.close();
-        });
+    void closeClients() {
+        clients.forEach(HttpClient::close);
     }
 
     @Test
@@ -99,7 +71,7 @@ class RegistrationLoginIntegrationTest {
         String email = uniqueEmail();
 
         HttpResponse<String> response = post(client, "/api/auth/register", registration(" " + email.toUpperCase(Locale.ROOT) + " "));
-        UUID userId = trackUser(response, 201);
+        UUID userId = userIdFrom(response, 201);
 
         assertThat(JsonPath.<Map<String, Object>>read(response.body(), "$"))
                 .containsOnlyKeys("userId", "userType", "displayName");
@@ -121,8 +93,8 @@ class RegistrationLoginIntegrationTest {
     void logsInAfterLogoutAndRecoversExistingAccount() throws Exception {
         HttpClient client = newClient();
         String email = uniqueEmail();
-        UUID userId = trackUser(post(client, "/api/auth/register", registration(email)), 201);
-        UUID accountId = createAccount(client, userId);
+        UUID userId = userIdFrom(post(client, "/api/auth/register", registration(email)), 201);
+        UUID accountId = createAccount(client);
         HttpRequest upload = withCsrf(client, builder("/api/brokerage-accounts/" + accountId + "/account-activities/imports"), port)
                 .header("Content-Type", "multipart/form-data; boundary=AuthCsvBoundary")
                 .POST(HttpRequest.BodyPublishers.ofString(
@@ -155,9 +127,9 @@ class RegistrationLoginIntegrationTest {
     @Test
     void rejectsDuplicateRegistrationWithoutReplacingGuestIdentity() throws Exception {
         String email = uniqueEmail();
-        UUID registeredUserId = trackUser(post(newClient(), "/api/auth/register", registration(email)), 201);
+        UUID registeredUserId = userIdFrom(post(newClient(), "/api/auth/register", registration(email)), 201);
         HttpClient guestClient = newClient();
-        UUID guestId = trackUser(post(guestClient, "/api/auth/guest", null), 200);
+        UUID guestId = userIdFrom(post(guestClient, "/api/auth/guest", null), 200);
 
         HttpResponse<String> response = post(guestClient, "/api/auth/register", registration(" " + email.toUpperCase(Locale.ROOT) + " "));
 
@@ -178,7 +150,7 @@ class RegistrationLoginIntegrationTest {
         var first = firstClient.sendAsync(firstRequest, HttpResponse.BodyHandlers.ofString());
         var second = secondClient.sendAsync(secondRequest, HttpResponse.BodyHandlers.ofString());
         List<HttpResponse<String>> responses = List.of(first.join(), second.join());
-        responses.stream().filter(response -> response.statusCode() == 201).forEach(response -> trackUser(response, 201));
+        responses.stream().filter(response -> response.statusCode() == 201).forEach(response -> userIdFrom(response, 201));
 
         assertThat(responses.stream().map(HttpResponse::statusCode).toList()).containsExactlyInAnyOrder(201, 409);
     }
@@ -186,11 +158,10 @@ class RegistrationLoginIntegrationTest {
     @Test
     void returnsSameLoginErrorForWrongPasswordUnknownEmailAndAccountWithoutPassword() throws Exception {
         String email = uniqueEmail();
-        trackUser(post(newClient(), "/api/auth/register", registration(email)), 201);
+        userIdFrom(post(newClient(), "/api/auth/register", registration(email)), 201);
         AppUser placeholder = appUserRepository.saveAndFlush(new AppUser(uniqueEmail(), "No Password"));
-        userIds.add(placeholder.getId());
         HttpClient guestClient = newClient();
-        UUID guestId = trackUser(post(guestClient, "/api/auth/guest", null), 200);
+        UUID guestId = userIdFrom(post(guestClient, "/api/auth/guest", null), 200);
 
         for (Map<String, String> attempt : List.of(
                 credentials(email, "incorrect password"),
@@ -207,11 +178,11 @@ class RegistrationLoginIntegrationTest {
     @Test
     void loginReplacesGuestSessionWithoutMigratingGuestData() throws Exception {
         String email = uniqueEmail();
-        UUID registeredId = trackUser(post(newClient(), "/api/auth/register", registration(email)), 201);
+        UUID registeredId = userIdFrom(post(newClient(), "/api/auth/register", registration(email)), 201);
         HttpClient client = newClient();
         HttpResponse<String> guestResponse = post(client, "/api/auth/guest", null);
-        UUID guestId = trackUser(guestResponse, 200);
-        UUID guestAccountId = createAccount(client, guestId);
+        UUID guestId = userIdFrom(guestResponse, 200);
+        UUID guestAccountId = createAccount(client);
         String oldSessionId = userSession(guestId).getId();
         HttpCookie oldCookie = HttpCookie.parse(guestResponse.headers().firstValue("Set-Cookie").orElseThrow()).getFirst();
         HttpResponse<String> csrf = get(client, "/api/auth/csrf");
@@ -235,10 +206,10 @@ class RegistrationLoginIntegrationTest {
     @Test
     void registrationFromGuestCreatesSeparateUserWithoutUpgradingGuest() throws Exception {
         HttpClient client = newClient();
-        UUID guestId = trackUser(post(client, "/api/auth/guest", null), 200);
-        UUID guestAccountId = createAccount(client, guestId);
+        UUID guestId = userIdFrom(post(client, "/api/auth/guest", null), 200);
+        UUID guestAccountId = createAccount(client);
 
-        UUID registeredId = trackUser(post(client, "/api/auth/register", registration(uniqueEmail())), 201);
+        UUID registeredId = userIdFrom(post(client, "/api/auth/register", registration(uniqueEmail())), 201);
 
         assertThat(registeredId).isNotEqualTo(guestId);
         assertCurrentUser(client, registeredId);
@@ -288,7 +259,7 @@ class RegistrationLoginIntegrationTest {
             );
             assertCsrfRejected(response);
         }
-        UUID userId = trackUser(post(client, "/api/auth/register", registration(uniqueEmail())), 201);
+        UUID userId = userIdFrom(post(client, "/api/auth/register", registration(uniqueEmail())), 201);
         HttpRequest missingCsrf = builder("/api/brokerage-accounts")
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(accountJson())).build();
@@ -312,7 +283,7 @@ class RegistrationLoginIntegrationTest {
     void logoutEndsOnlyCurrentSessionOfRegisteredUser() throws Exception {
         HttpClient firstClient = newClient();
         String email = uniqueEmail();
-        UUID userId = trackUser(post(firstClient, "/api/auth/register", registration(email)), 201);
+        UUID userId = userIdFrom(post(firstClient, "/api/auth/register", registration(email)), 201);
         HttpClient secondClient = newClient();
         assertThat(post(secondClient, "/api/auth/login", credentials(email, PASSWORD)).statusCode()).isEqualTo(200);
         assertThat(sessionRepository.findByPrincipalName(userId.toString())).hasSize(2);
@@ -327,11 +298,11 @@ class RegistrationLoginIntegrationTest {
     @Test
     void keepsRegisteredUsersAccountsIsolated() throws Exception {
         HttpClient firstClient = newClient();
-        UUID firstId = trackUser(post(firstClient, "/api/auth/register", registration(uniqueEmail())), 201);
-        UUID firstAccountId = createAccount(firstClient, firstId);
+        userIdFrom(post(firstClient, "/api/auth/register", registration(uniqueEmail())), 201);
+        UUID firstAccountId = createAccount(firstClient);
         HttpClient secondClient = newClient();
-        UUID secondId = trackUser(post(secondClient, "/api/auth/register", registration(uniqueEmail())), 201);
-        UUID secondAccountId = createAccount(secondClient, secondId);
+        userIdFrom(post(secondClient, "/api/auth/register", registration(uniqueEmail())), 201);
+        UUID secondAccountId = createAccount(secondClient);
 
         assertThat(get(secondClient, "/api/brokerage-accounts/" + firstAccountId + "/account-activities").statusCode())
                 .isEqualTo(404);
@@ -390,21 +361,19 @@ class RegistrationLoginIntegrationTest {
         return UUID.randomUUID() + "@example.com";
     }
 
-    private UUID trackUser(HttpResponse<String> response, int expectedStatus) {
+    private UUID userIdFrom(HttpResponse<String> response, int expectedStatus) {
         assertThat(response.statusCode()).isEqualTo(expectedStatus);
         UUID userId = UUID.fromString(JsonPath.read(response.body(), "$.userId"));
-        userIds.add(userId);
         return userId;
     }
 
-    private UUID createAccount(HttpClient client, UUID userId) throws Exception {
+    private UUID createAccount(HttpClient client) throws Exception {
         HttpRequest request = withCsrf(client, builder("/api/brokerage-accounts"), port)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(accountJson())).build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(201);
         UUID accountId = UUID.fromString(JsonPath.read(response.body(), "$.id"));
-        accountOwners.put(accountId, userId);
         return accountId;
     }
 
