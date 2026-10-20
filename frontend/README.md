@@ -1,6 +1,19 @@
 This is the front-end for AlphaForge.
 
-Run `npm run dev` from this directory to start the development server.
+## Local setup
+
+Use Node.js 24 LTS. The repository-root `.nvmrc` records the major version for
+local version managers and the future CI workflow; `package.json` declares the
+same requirement. With nvm installed, run `nvm install` and `nvm use` from the
+repository root. The version file alone does not install or switch Node.js.
+
+On macOS with Homebrew, install `node@24` with `brew install node@24` and add
+`export PATH="/opt/homebrew/opt/node@24/bin:$PATH"` to `~/.zprofile` on Apple
+Silicon (`/usr/local/opt/node@24/bin` on Intel). Open a new terminal, then check
+that `node --version` starts with `v24.`.
+
+From this directory, install dependencies with `npm ci`, then run `npm run dev`
+to start the development server.
 
 ## Authentication UI
 
