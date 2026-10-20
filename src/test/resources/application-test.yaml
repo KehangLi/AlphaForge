@@ -1,0 +1,25 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  session:
+    timeout: 24h
+    jdbc:
+      initialize-schema: never
+
+# Connection details are supplied exclusively by PostgresTestConfiguration.
+# This profile defines no fallback to the local database.
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
+alphaforge:
+  cors:
+    allowed-origins: http://localhost:3000
+  dev:
+    seed-data:
+      enabled: false
