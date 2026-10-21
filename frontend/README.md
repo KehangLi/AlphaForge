@@ -3,7 +3,7 @@ This is the front-end for AlphaForge.
 ## Local setup
 
 Use Node.js 24 LTS. The repository-root `.nvmrc` records the major version for
-local version managers and the future CI workflow; `package.json` declares the
+local version managers and the CI workflow; `package.json` declares the
 same requirement. With nvm installed, run `nvm install` and `nvm use` from the
 repository root. The version file alone does not install or switch Node.js.
 
@@ -44,3 +44,10 @@ and frontend/API hosts on the same site for the current `SameSite=Lax` cookies.
 
 Run `npm test` for request and session-cache tests, `npm run lint` for linting,
 and `npm run build` for the production build and TypeScript checks.
+
+## Continuous integration
+
+The repository's `.github/workflows/ci.yml` runs independent Frontend and Backend
+jobs for pull requests and pushes to `main`. The Frontend job reads Node.js from
+the root `.nvmrc`, installs dependencies with `npm ci`, then runs lint, tests, and
+the production build. It does not need a running backend or database.
