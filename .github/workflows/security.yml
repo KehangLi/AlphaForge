@@ -1,0 +1,163 @@
+name: Security Checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.76.1
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1
+
+jobs:
+  report-helper-tests:
+    name: Report Helper Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Test report validation and secret sanitization
+        run: python3 -B -m unittest discover -s .github/scripts -p 'test_*.py'
+
+  frontend-dependencies:
+    name: Frontend Dependencies
+    needs: report-helper-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Report all frontend dependencies
+        working-directory: frontend
+        run: |
+          mkdir -p "$RUNNER_TEMP/security-reports"
+          audit_status=0
+          npm audit --json > "$RUNNER_TEMP/security-reports/frontend-all.json" || audit_status=$?
+          python3 "$GITHUB_WORKSPACE/.github/scripts/security_reports.py" npm-summary \
+            "$RUNNER_TEMP/security-reports/frontend-all.json"
+          if (( audit_status > 1 )); then exit "$audit_status"; fi
+
+      - name: Fail on high or critical production dependency vulnerabilities
+        working-directory: frontend
+        run: |
+          audit_status=0
+          npm audit --omit=dev --audit-level=high --json \
+            > "$RUNNER_TEMP/security-reports/frontend-production.json" || audit_status=$?
+          python3 "$GITHUB_WORKSPACE/.github/scripts/security_reports.py" npm-summary \
+            "$RUNNER_TEMP/security-reports/frontend-production.json"
+          exit "$audit_status"
+
+      - name: Upload frontend dependency reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dependency-reports
+          path: ${{ runner.temp }}/security-reports/frontend-*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  backend-dependencies:
+    name: Backend Dependencies
+    needs: report-helper-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Package the application for dependency scanning
+        run: ./mvnw --batch-mode --no-transfer-progress -DskipTests clean package
+
+      - name: Report all packaged backend dependency vulnerabilities
+        run: |
+          mkdir -p "$RUNNER_TEMP/security-reports" "$RUNNER_TEMP/trivy-cache"
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/target,target=/scan,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/security-reports,target=/reports" \
+            --mount "type=bind,source=$RUNNER_TEMP/trivy-cache,target=/root/.cache/trivy" \
+            "$TRIVY_IMAGE" rootfs /scan --scanners vuln --pkg-types library --list-all-pkgs \
+            --format json --output /reports/backend.json --exit-code 0 --timeout 20m --no-progress
+          python3 .github/scripts/security_reports.py trivy-summary \
+            "$RUNNER_TEMP/security-reports/backend.json" \
+            --require-package org.springframework.boot:spring-boot \
+            --require-package org.postgresql:postgresql
+
+      - name: Fail on high or critical packaged dependency vulnerabilities
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/target,target=/scan,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/trivy-cache,target=/root/.cache/trivy" \
+            "$TRIVY_IMAGE" rootfs /scan --scanners vuln --pkg-types library \
+            --severity HIGH,CRITICAL --exit-code 1 --timeout 5m --no-progress
+
+      - name: Upload backend dependency report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-dependency-report
+          path: ${{ runner.temp }}/security-reports/backend.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  secrets:
+    name: Secrets
+    needs: report-helper-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out full Git history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Scan Git history and sanitize the report
+        run: |
+          mkdir -p "$RUNNER_TEMP/security-raw" "$RUNNER_TEMP/security-reports"
+          scan_status=0
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/repo,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/security-raw,target=/reports" \
+            "$GITLEAKS_IMAGE" git /repo --log-opts=--all --redact=100 \
+            --report-format json --report-path /reports/gitleaks.json \
+            --exit-code 1 --no-banner --no-color || scan_status=$?
+          python3 .github/scripts/security_reports.py sanitize-gitleaks \
+            "$RUNNER_TEMP/security-raw/gitleaks.json" \
+            "$RUNNER_TEMP/security-reports/secrets.json"
+          exit "$scan_status"
+
+      - name: Upload sanitized secret locations
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: secret-scan-locations
+          path: ${{ runner.temp }}/security-reports/secrets.json
+          if-no-files-found: ignore
+          retention-days: 7
