@@ -56,7 +56,7 @@ class ProductionConfigurationTest {
             assertThat(environment.getProperty("server.servlet.session.cookie.http-only", Boolean.class)).isTrue();
             assertThat(environment.getProperty("server.servlet.session.cookie.same-site")).isEqualTo("lax");
             assertThat(environment.getProperty("spring.web.error.include-stacktrace")).isEqualTo("never");
-            assertThat(environment.getProperty("spring.http.log-request-details", Boolean.class)).isFalse();
+            assertThat(environment.getProperty("spring.mvc.log-request-details", Boolean.class)).isFalse();
             assertThat(environment.getProperty("alphaforge.cors.allowed-origins")).isEmpty();
         }
     }

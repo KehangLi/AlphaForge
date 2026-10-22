@@ -4,6 +4,8 @@ The backend uses the same application artifact in every environment. Runtime
 configuration selects the database and profile; passwords are supplied separately
 from the artifact. This step prepares configuration only. Creating Azure resources,
 building a Docker image, and deploying the frontend are separate steps.
+For the Dockerfile, build script, and disposable local container verification,
+see [containerization.md](containerization.md).
 
 ## Profiles
 
