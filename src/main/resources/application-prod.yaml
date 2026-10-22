@@ -3,7 +3,32 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      data-source-properties:
+        sslmode: verify-full
+        sslfactory: org.postgresql.ssl.DefaultJavaSSLFactory
+  jpa:
+    show-sql: false
+  web:
+    error:
+      include-message: never
+      include-binding-errors: never
+      include-stacktrace: never
+      include-exception: false
+  mvc:
+    log-request-details: false
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: lax
 
 alphaforge:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  dev:
+    seed-data:
+      enabled: false
