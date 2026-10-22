@@ -46,6 +46,10 @@ sends it to the backend. Production cookies require HTTPS; local development
 uses the existing `local` profile. Configure allowed frontend origins with
 `CORS_ALLOWED_ORIGINS`. This setup assumes the frontend and API are deployed
 on the same site, as required by the current `SameSite=Lax` cookie policy.
+For deployment variables and secret storage, see
+[production-configuration.md](production-configuration.md). The planned frontend
+uses a single browser-facing domain with `/api` forwarding to the backend; browser
+authentication is verified when that frontend is deployed.
 
 ## Account Behavior
 
