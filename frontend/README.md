@@ -37,17 +37,29 @@ Logout opens a fresh entry page, discarding the previous workspace's React state
 Session cookies are HttpOnly and managed by the browser. Credentials and CSRF
 tokens are not persisted in local storage.
 
-The backend defaults to `http://localhost:8080`. Override it with
-`NEXT_PUBLIC_API_BASE_URL` when needed. Its `CORS_ALLOWED_ORIGINS` must include
-the frontend origin (locally `http://localhost:3000`). Production requires HTTPS
-and frontend/API hosts on the same site for the current `SameSite=Lax` cookies.
+With `npm run dev`, the backend defaults to `http://localhost:8080`. Override it
+with `NEXT_PUBLIC_API_BASE_URL` in `frontend/.env.local` when needed; see
+[.env.example](.env.example). The backend's `CORS_ALLOWED_ORIGINS` must include
+the frontend origin (locally `http://localhost:3000`).
+
+Production builds always request `/api/...` on the frontend's own origin,
+including CSRF requests and CSV uploads. `NEXT_PUBLIC_API_BASE_URL` is ignored
+in production. Next.js forwards those requests to `BACKEND_ORIGIN`, preserving
+the `/api` prefix. Set `BACKEND_ORIGIN` to an HTTPS origin in Vercel before
+building. This keeps the current `Secure`, `HttpOnly`, `SameSite=Lax` session
+cookie usable through one browser-facing domain. API responses opt out of
+browser caching and Vercel's external rewrite caching.
+
+See [the Vercel deployment guide](../docs/frontend-deployment.md) for project
+settings, Azure origin configuration, preview behavior, and browser verification.
 
 Run `npm test` for request and session-cache tests, `npm run lint` for linting,
 and `npm run build` for the production build and TypeScript checks.
 
 ## Continuous integration
 
-The repository's `.github/workflows/ci.yml` runs independent Frontend and Backend
-jobs for pull requests and pushes to `main`. The Frontend job reads Node.js from
+The repository's `.github/workflows/ci.yml` currently runs independent Frontend
+and Backend jobs through manual `workflow_dispatch`. The Frontend job reads Node.js from
 the root `.nvmrc`, installs dependencies with `npm ci`, then runs lint, tests, and
-the production build. It does not need a running backend or database.
+the production build. It does not need `BACKEND_ORIGIN`, a running backend, or a
+database. Vercel deployment settings are separate from this CI workflow.
