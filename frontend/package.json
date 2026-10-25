@@ -10,7 +10,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test src/lib/api/*.test.ts src/features/auth/*.test.ts"
+    "test": "node --import tsx --test next.config.test.ts src/lib/api/*.test.ts src/features/auth/*.test.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.0",

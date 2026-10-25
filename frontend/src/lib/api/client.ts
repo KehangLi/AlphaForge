@@ -1,4 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+// Production requests stay on the frontend origin; Next.js forwards /api to the backend.
+const API_BASE_URL = process.env.NODE_ENV === "production"
+  ? ""
+  : (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080");
 
 type CsrfToken = { headerName: string; token: string };
 type ApiRequestOptions = RequestInit & { notifyUnauthorized?: boolean };
