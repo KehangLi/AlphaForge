@@ -13,6 +13,8 @@ import java.util.UUID;
 
 public interface AccountActivityRepository extends JpaRepository<AccountActivity, UUID>, JpaSpecificationExecutor<AccountActivity> {
 
+    long countByBrokerageAccount_User_Id(UUID userId);
+
     List<AccountActivity> findByImportBatch_IdOrderByRowNumberAsc(UUID importBatchId);
 
     List<AccountActivity> findByBrokerageAccount_Id(UUID brokerageAccountId);

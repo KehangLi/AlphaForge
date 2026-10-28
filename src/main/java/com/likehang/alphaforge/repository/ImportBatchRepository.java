@@ -12,6 +12,8 @@ import java.util.UUID;
 
 public interface ImportBatchRepository extends JpaRepository<ImportBatch, UUID> {
 
+    long countByBrokerageAccount_User_Id(UUID userId);
+
     List<ImportBatch> findByBrokerageAccount_IdOrderByCreatedAtDesc(UUID brokerageAccountId);
 
     Page<ImportBatch> findByBrokerageAccount_User_IdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
