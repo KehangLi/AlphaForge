@@ -18,6 +18,10 @@ server:
         secure: false
 
 alphaforge:
+  rate-limits:
+    enabled: false
+  client-ip:
+    proxy-secret: ""
   cors:
     allowed-origins: http://localhost:3000
   dev:

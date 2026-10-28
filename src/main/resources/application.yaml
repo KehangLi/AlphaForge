@@ -8,12 +8,17 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${alphaforge.uploads.max-file-size}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:6MB}
   session:
     timeout: ${SESSION_TIMEOUT:24h}
     jdbc:
       initialize-schema: never
 
 server:
+  forward-headers-strategy: none
   servlet:
     session:
       cookie:
@@ -22,3 +27,26 @@ server:
         secure: true
         same-site: lax
         path: /
+
+alphaforge:
+  client-ip:
+    proxy-secret: ${TRUSTED_PROXY_SECRET:}
+  rate-limits:
+    enabled: true
+    max-keys: 10000
+    requests-per-ip: {capacity: 120, period: 1m}
+    login-per-ip: {capacity: 30, period: 1m}
+    login-per-email: {capacity: 10, period: 10m}
+    register-per-ip: {capacity: 5, period: 1h}
+    guest-creation-per-ip: {capacity: 5, period: 1h}
+    csrf-per-ip: {capacity: 60, period: 1m}
+    upload-per-user: {capacity: 5, period: 1m}
+  uploads:
+    max-file-size: ${UPLOAD_MAX_FILE_SIZE:5MB}
+    max-rows: 10000
+  guest-quotas:
+    max-accounts: 2
+    max-import-batches: 10
+    max-activities: 5000
+    max-file-size: 1MB
+    max-rows: 1000

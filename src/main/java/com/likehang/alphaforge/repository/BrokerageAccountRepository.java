@@ -9,6 +9,8 @@ import java.util.UUID;
 
 public interface BrokerageAccountRepository extends JpaRepository<BrokerageAccount, UUID> {
 
+    long countByUser_Id(UUID userId);
+
     List<BrokerageAccount> findByUser_IdOrderByCreatedAtDesc(UUID userId);
 
     // why userId? To check do you have the access to the Info

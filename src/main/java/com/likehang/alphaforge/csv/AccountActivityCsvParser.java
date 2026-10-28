@@ -3,6 +3,7 @@ package com.likehang.alphaforge.csv;
 import com.likehang.alphaforge.csv.dto.AccountActivityCsvHeaders;
 import com.likehang.alphaforge.csv.dto.AccountActivityCsvRow;
 import com.likehang.alphaforge.exception.CsvImportException;
+import com.likehang.alphaforge.exception.UploadTooLargeException;
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
@@ -25,6 +26,8 @@ import java.util.Map;
 @Component
 public class AccountActivityCsvParser {
 
+    private static final int MAX_ERROR_DETAILS = 100;
+
     private final AccountActivityCsvMapper accountActivityCsvMapper;
 
     public AccountActivityCsvParser(AccountActivityCsvMapper accountActivityCsvMapper) {
@@ -34,7 +37,8 @@ public class AccountActivityCsvParser {
     public AccountActivityCsvParseResult parse(
             byte[] fileBytes,
             ImportBatch importBatch,
-            BrokerageAccount brokerageAccount
+            BrokerageAccount brokerageAccount,
+            int maxRows
     ) {
         CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
                 .setHeader()
@@ -53,26 +57,30 @@ public class AccountActivityCsvParser {
             List<AccountActivity> activities = new ArrayList<>();
             List<CsvImportRowError> errors = new ArrayList<>();
             int totalRows = 0;
+            int failedRows = 0;
 
             for (CSVRecord record : parser) {
                 totalRows++;
+                if (totalRows > maxRows) throw new UploadTooLargeException("CSV file exceeds the row limit of " + maxRows + ".");
                 int rowNumber = Math.toIntExact(record.getRecordNumber() + 1);
 
                 try {
                     AccountActivityCsvRow row = AccountActivityCsvRow.fromColumns(record.toMap());
                     activities.add(accountActivityCsvMapper.toEntity(row, importBatch, brokerageAccount, rowNumber));
                 } catch (CsvRowMappingException exception) {
-                    errors.add(new CsvImportRowError(
+                    failedRows++;
+                    if (errors.size() < MAX_ERROR_DETAILS) errors.add(new CsvImportRowError(
                             exception.getRowNumber(),
                             exception.getColumnName(),
                             exception.getReason()
                     ));
                 } catch (IllegalArgumentException exception) {
-                    errors.add(new CsvImportRowError(rowNumber, null, exception.getMessage()));
+                    failedRows++;
+                    if (errors.size() < MAX_ERROR_DETAILS) errors.add(new CsvImportRowError(rowNumber, null, exception.getMessage()));
                 }
             }
 
-            return new AccountActivityCsvParseResult(totalRows, activities, errors.size(), errors);
+            return new AccountActivityCsvParseResult(totalRows, activities, failedRows, errors);
         } catch (IOException exception) {
             throw new CsvImportException("Failed to read CSV file", exception);
         }

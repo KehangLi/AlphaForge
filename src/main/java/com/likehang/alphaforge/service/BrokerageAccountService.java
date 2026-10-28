@@ -7,9 +7,9 @@ import com.likehang.alphaforge.rest.dto.response.BrokerageAccountListResponse;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
-import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.ImportBatchRepository;
+import com.likehang.alphaforge.service.quota.GuestQuotaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,20 +25,20 @@ public class BrokerageAccountService {
     private static final Logger log = LoggerFactory.getLogger(BrokerageAccountService.class);
 
     private final BrokerageAccountRepository brokerageAccountRepository;
-    private final AppUserRepository appUserRepository;
     private final AccountActivityRepository accountActivityRepository;
     private final ImportBatchRepository importBatchRepository;
+    private final GuestQuotaService guestQuotaService;
 
     public BrokerageAccountService(
             BrokerageAccountRepository brokerageAccountRepository,
-            AppUserRepository appUserRepository,
             AccountActivityRepository accountActivityRepository,
-            ImportBatchRepository importBatchRepository
+            ImportBatchRepository importBatchRepository,
+            GuestQuotaService guestQuotaService
     ) {
         this.brokerageAccountRepository = brokerageAccountRepository;
-        this.appUserRepository = appUserRepository;
         this.accountActivityRepository = accountActivityRepository;
         this.importBatchRepository = importBatchRepository;
+        this.guestQuotaService = guestQuotaService;
     }
 
     @Transactional(readOnly = true)
@@ -80,8 +80,8 @@ public class BrokerageAccountService {
         validateMaxLength(accountName, 120, "Account name");
         validateMaxLength(accountNumberMasked, 80, "Account number masked");
 
-        AppUser appUser = appUserRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        AppUser appUser = guestQuotaService.lockUser(userId);
+        guestQuotaService.checkAccountCreation(appUser);
 
         if (brokerageAccountRepository.existsByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
                 userId,

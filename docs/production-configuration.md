@@ -35,6 +35,7 @@ A separate migration identity can be introduced later.
 | `DB_URL` | Yes | Environment variable | `jdbc:postgresql://host[:port]/database`; address only |
 | `DB_USERNAME` | Yes | Environment variable | Application database account |
 | `DB_PASSWORD` | Yes | Environment variable referencing a Secret | Password for that database account |
+| `TRUSTED_PROXY_SECRET` | Yes | Environment variable referencing a Secret | Same random server-only value as Vercel; authenticates forwarded client IP |
 | `SESSION_TIMEOUT` | No; defaults to `24h` | Environment variable | Session lifetime |
 | `SERVER_PORT` | No; defaults to `8080` | Environment variable | Backend's internal listening port |
 | `CORS_ALLOWED_ORIGINS` | No; defaults to empty | Environment variable | Comma-separated browser origins, without paths |
@@ -110,6 +111,11 @@ existing running revisions. Verify a new database connection afterwards, not
 only an existing pooled connection. Changing an environment variable does not
 change the actual PostgreSQL password. Immediate rotation may interrupt service;
 use overlapping database accounts if a future deployment needs zero downtime.
+
+Authentication rate limits and guest quotas are enabled by default. Configure
+one active backend replica for the current in-memory limiter. See
+[abuse-protection.md](abuse-protection.md) for defaults, shared proxy secret setup,
+and the migration requirement before using multiple replicas.
 
 ## Local environment files
 

@@ -27,12 +27,16 @@ public class ProductionEnvironmentPostProcessor implements EnvironmentPostProces
         String url = requiredProperty(environment, "spring.datasource.url", "DB_URL", missing);
         requiredProperty(environment, "spring.datasource.username", "DB_USERNAME", missing);
         requiredProperty(environment, "spring.datasource.password", "DB_PASSWORD", missing);
+        String proxySecret = requiredProperty(environment, "alphaforge.client-ip.proxy-secret", "TRUSTED_PROXY_SECRET", missing);
         if (!missing.isEmpty()) {
             throw new IllegalStateException("Missing production configuration: " + String.join(", ", missing)
                     + ". Supply nonblank values through runtime environment variables or secret references.");
         }
 
         validateDatabaseUrl(url);
+        if (proxySecret.length() < 32 || proxySecret.length() > 256) {
+            throw new IllegalStateException("TRUSTED_PROXY_SECRET must contain 32-256 characters.");
+        }
     }
 
     private String requiredProperty(ConfigurableEnvironment environment, String property, String variable,

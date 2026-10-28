@@ -20,6 +20,7 @@ and Vercel's external rewrite caching.
 | Variable | Where | Purpose |
 | --- | --- | --- |
 | `BACKEND_ORIGIN` | Vercel project environment variables | HTTPS backend origin, without `/api`, credentials, query parameters, or fragment |
+| `TRUSTED_PROXY_SECRET` | Vercel server environment variables and Azure secret | Same random 32-256 character value on both; protects forwarded client IP |
 | `NEXT_PUBLIC_API_BASE_URL` | Optional `frontend/.env.local` for `next dev` | Override the local browser-to-backend address; ignored in production builds |
 | `CORS_ALLOWED_ORIGINS` | Azure Container App environment variables | Exact allowed frontend origins, separated by commas |
 
@@ -102,6 +103,14 @@ Azure configuration change so the backend reads the new value. Proxy requests
 can retain the browser's `Origin` header; verify both the proxy and the backend
 allowlist instead of assuming a successful Postman call proves browser access.
 Keep CSRF protection and the production cookie settings enabled.
+
+The `src/proxy.ts` layer forwards Vercel's client IP using private, authenticated
+headers before the existing rewrite runs. Generate `TRUSTED_PROXY_SECRET` with
+`openssl rand -hex 32`, store the same value in both deployments, and rebuild the
+frontend. Never expose it through a `NEXT_PUBLIC_` variable. Incoming identity
+headers are replaced; backend socket-peer fallback protects direct requests.
+Verify real-client separation after deploying. See
+[abuse-protection.md](abuse-protection.md) for rate-limit defaults and details.
 
 ## Preview deployments
 

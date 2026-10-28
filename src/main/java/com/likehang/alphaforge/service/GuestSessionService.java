@@ -5,6 +5,7 @@ import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.rest.dto.response.GuestSessionResponse;
+import com.likehang.alphaforge.security.limits.RateLimitService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -18,13 +19,15 @@ public class GuestSessionService {
     private static final Logger log = LoggerFactory.getLogger(GuestSessionService.class);
 
     private final AppUserRepository appUserRepository;
+    private final RateLimitService rateLimits;
 
-    public GuestSessionService(AppUserRepository appUserRepository) {
+    public GuestSessionService(AppUserRepository appUserRepository, RateLimitService rateLimits) {
         this.appUserRepository = appUserRepository;
+        this.rateLimits = rateLimits;
     }
 
     @Transactional
-    public GuestSessionResponse createOrResumeGuest(UUID existingUserId) {
+    public GuestSessionResponse createOrResumeGuest(UUID existingUserId, String clientIp) {
         if (existingUserId != null) {
             AppUser existingUser = appUserRepository.findById(existingUserId).orElse(null);
             if (existingUser != null) {
@@ -35,6 +38,7 @@ public class GuestSessionService {
             }
         }
 
+        rateLimits.check(RateLimitService.Rule.GUEST_CREATION_IP, clientIp);
         AppUser guest = appUserRepository.save(new AppUser(null, "Guest", AppUserType.GUEST));
         log.info("Created guest user: user={}", guest.getId());
         return toResponse(guest);

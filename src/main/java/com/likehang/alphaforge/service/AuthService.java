@@ -8,6 +8,7 @@ import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.rest.dto.request.LoginRequest;
 import com.likehang.alphaforge.rest.dto.request.RegisterRequest;
 import com.likehang.alphaforge.rest.dto.response.CurrentUserResponse;
+import com.likehang.alphaforge.security.limits.RateLimitService;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,15 +27,18 @@ public class AuthService {
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final RateLimitService rateLimits;
 
     public AuthService(
             AppUserRepository appUserRepository,
             PasswordEncoder passwordEncoder,
-            AuthenticationManager authenticationManager
+            AuthenticationManager authenticationManager,
+            RateLimitService rateLimits
     ) {
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
+        this.rateLimits = rateLimits;
     }
 
     @Transactional
@@ -58,6 +62,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public CurrentUserResponse login(LoginRequest request) {
+        rateLimits.check(RateLimitService.Rule.LOGIN_EMAIL, request.email());
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(

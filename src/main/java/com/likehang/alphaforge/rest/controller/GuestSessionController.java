@@ -3,6 +3,7 @@ package com.likehang.alphaforge.rest.controller;
 import com.likehang.alphaforge.rest.dto.response.GuestSessionResponse;
 import com.likehang.alphaforge.service.GuestSessionService;
 import com.likehang.alphaforge.service.UserSessionService;
+import com.likehang.alphaforge.security.limits.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.CacheControl;
@@ -19,10 +20,13 @@ public class GuestSessionController {
 
     private final GuestSessionService guestSessionService;
     private final UserSessionService userSessionService;
+    private final ClientIpResolver clientIpResolver;
 
-    public GuestSessionController(GuestSessionService guestSessionService, UserSessionService userSessionService) {
+    public GuestSessionController(GuestSessionService guestSessionService, UserSessionService userSessionService,
+                                  ClientIpResolver clientIpResolver) {
         this.guestSessionService = guestSessionService;
         this.userSessionService = userSessionService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @PostMapping("/guest")
@@ -31,7 +35,7 @@ public class GuestSessionController {
             HttpServletResponse servletResponse
     ) {
         UUID existingUserId = userSessionService.getUserId(request);
-        GuestSessionResponse response = guestSessionService.createOrResumeGuest(existingUserId);
+        GuestSessionResponse response = guestSessionService.createOrResumeGuest(existingUserId, clientIpResolver.resolve(request));
 
         if (!response.userId().equals(existingUserId)) {
             userSessionService.startSession(request, servletResponse, response.userId());

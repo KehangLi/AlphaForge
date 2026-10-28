@@ -14,8 +14,16 @@ test("Vercel deployments require an explicitly configured backend", () => {
   }
 });
 
+test("Vercel deployments require a bounded server-only proxy secret", () => {
+  for (const secret of [undefined, "", "too-short", "x".repeat(257)]) {
+    assert.throws(() => createNextConfig({ VERCEL: "1", BACKEND_ORIGIN: "https://backend.example",
+      TRUSTED_PROXY_SECRET: secret }), /Set TRUSTED_PROXY_SECRET/);
+  }
+});
+
 test("API forwarding preserves the backend API prefix and normalizes the origin", async () => {
-  const config = createNextConfig({ VERCEL: "1", BACKEND_ORIGIN: " https://backend.example/ " });
+  const config = createNextConfig({ VERCEL: "1", BACKEND_ORIGIN: " https://backend.example/ ",
+    TRUSTED_PROXY_SECRET: "test-proxy-secret-with-at-least-32-characters" });
   assert.deepEqual(await config.rewrites!(), [{
     source: "/api/:path*",
     destination: "https://backend.example/api/:path*",
@@ -48,7 +56,8 @@ test("local production verification can use a loopback backend", async () => {
 
 test("Vercel deployments cannot accidentally forward to loopback", () => {
   for (const origin of ["http://localhost:8080", "https://localhost", "http://127.0.0.1", "https://[::1]"]) {
-    assert.throws(() => createNextConfig({ VERCEL: "1", BACKEND_ORIGIN: origin }), /must use HTTPS/);
+    assert.throws(() => createNextConfig({ VERCEL: "1", BACKEND_ORIGIN: origin,
+      TRUSTED_PROXY_SECRET: "test-proxy-secret-with-at-least-32-characters" }), /must use HTTPS/);
   }
 });
 

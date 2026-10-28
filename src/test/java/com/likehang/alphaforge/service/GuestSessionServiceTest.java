@@ -5,6 +5,7 @@ import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.rest.dto.response.GuestSessionResponse;
+import com.likehang.alphaforge.security.limits.RateLimitService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -22,7 +23,8 @@ import static org.mockito.Mockito.when;
 class GuestSessionServiceTest {
 
     private final AppUserRepository appUserRepository = mock(AppUserRepository.class);
-    private final GuestSessionService service = new GuestSessionService(appUserRepository);
+    private final RateLimitService rateLimits = mock(RateLimitService.class);
+    private final GuestSessionService service = new GuestSessionService(appUserRepository, rateLimits);
     private final UUID userId = UUID.fromString("10000000-0000-0000-0000-000000000001");
 
     @Test
@@ -33,7 +35,7 @@ class GuestSessionServiceTest {
             return guest;
         });
 
-        GuestSessionResponse result = service.createOrResumeGuest(null);
+        GuestSessionResponse result = service.createOrResumeGuest(null, "127.0.0.1");
 
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.userType()).isEqualTo(AppUserType.GUEST);
@@ -49,10 +51,11 @@ class GuestSessionServiceTest {
         guest.setId(userId);
         when(appUserRepository.findById(userId)).thenReturn(Optional.of(guest));
 
-        GuestSessionResponse result = service.createOrResumeGuest(userId);
+        GuestSessionResponse result = service.createOrResumeGuest(userId, "127.0.0.1");
 
         assertThat(result.userId()).isEqualTo(userId);
         verify(appUserRepository, never()).save(any(AppUser.class));
+        verify(rateLimits, never()).check(RateLimitService.Rule.GUEST_CREATION_IP, "127.0.0.1");
     }
 
     @Test
@@ -65,7 +68,7 @@ class GuestSessionServiceTest {
             return guest;
         });
 
-        assertThat(service.createOrResumeGuest(deletedUserId).userId()).isEqualTo(userId);
+        assertThat(service.createOrResumeGuest(deletedUserId, "127.0.0.1").userId()).isEqualTo(userId);
         verify(appUserRepository).save(any(AppUser.class));
     }
 
@@ -75,7 +78,7 @@ class GuestSessionServiceTest {
         registeredUser.setId(userId);
         when(appUserRepository.findById(userId)).thenReturn(Optional.of(registeredUser));
 
-        assertThatThrownBy(() -> service.createOrResumeGuest(userId))
+        assertThatThrownBy(() -> service.createOrResumeGuest(userId, "127.0.0.1"))
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("A registered user session is already active");
         verify(appUserRepository, never()).save(any(AppUser.class));

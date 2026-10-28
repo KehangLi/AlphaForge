@@ -13,6 +13,12 @@ import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.ImportBatchRepository;
+import com.likehang.alphaforge.repository.AppUserRepository;
+import com.likehang.alphaforge.security.limits.RateLimitService;
+import com.likehang.alphaforge.service.quota.GuestQuotaProperties;
+import com.likehang.alphaforge.service.quota.GuestQuotaService;
+import com.likehang.alphaforge.service.quota.UploadProperties;
+import org.springframework.util.unit.DataSize;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -34,6 +40,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AccountActivityCsvImportServiceTest {
+
+    private final AppUserRepository appUserRepository = mock(AppUserRepository.class);
 
     private final BrokerageAccountRepository brokerageAccountRepository = mock(BrokerageAccountRepository.class);
     private final ImportBatchRepository importBatchRepository = mock(ImportBatchRepository.class);
@@ -60,12 +68,17 @@ class AccountActivityCsvImportServiceTest {
                 accountActivityCsvParser,
                 csvImportFileSupport,
                 accountActivityHoldingValidationService,
+                new GuestQuotaService(new GuestQuotaProperties(2, 10, 5000, DataSize.ofMegabytes(1), 1000),
+                        new UploadProperties(DataSize.ofMegabytes(5), 10000), appUserRepository,
+                        brokerageAccountRepository, importBatchRepository, accountActivityRepository),
+                mock(RateLimitService.class),
                 "Manual CSV Upload",
                 "Default Local Account"
         );
 
         AppUser appUser = new AppUser("dev@alphaforge.local", "Local Dev User");
         appUser.setId(userId);
+        when(appUserRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(appUser));
 
         brokerageAccount = new BrokerageAccount(appUser, "Manual CSV Upload", "Default Local Account", "USD");
         brokerageAccount.setId(brokerageAccountId);

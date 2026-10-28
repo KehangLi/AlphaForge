@@ -1,6 +1,7 @@
 package com.likehang.alphaforge.config;
 
 import com.likehang.alphaforge.security.SecurityErrorHandler;
+import com.likehang.alphaforge.security.limits.RateLimitFilter;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,7 @@ import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
 
 import java.util.Map;
 
@@ -54,11 +56,13 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             SecurityContextRepository securityContextRepository,
-            SecurityErrorHandler errorHandler
+            SecurityErrorHandler errorHandler,
+            RateLimitFilter rateLimitFilter
     ) {
         return http
                 .cors(Customizer.withDefaults())
                 .csrf(Customizer.withDefaults())
+                .addFilterBefore(rateLimitFilter, CsrfFilter.class)
                 .securityContext(context -> context
                         .securityContextRepository(securityContextRepository)
                         .requireExplicitSave(true))

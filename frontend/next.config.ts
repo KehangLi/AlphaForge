@@ -8,6 +8,11 @@ export function createNextConfig(environment: Partial<NodeJS.ProcessEnv>): NextC
     throw new Error("Set BACKEND_ORIGIN to the HTTPS backend origin before deploying to Vercel.");
   }
 
+  if (onVercel && (!environment.TRUSTED_PROXY_SECRET || environment.TRUSTED_PROXY_SECRET.length < 32
+      || environment.TRUSTED_PROXY_SECRET.length > 256)) {
+    throw new Error("Set TRUSTED_PROXY_SECRET (32-256 characters) in Vercel and the Azure backend.");
+  }
+
   let backendOrigin: string | undefined;
   if (configuredOrigin) {
     let url: URL;

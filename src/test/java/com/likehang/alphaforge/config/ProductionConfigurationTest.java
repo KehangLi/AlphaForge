@@ -62,7 +62,7 @@ class ProductionConfigurationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"DB_URL", "DB_USERNAME", "DB_PASSWORD"})
+    @ValueSource(strings = {"DB_URL", "DB_USERNAME", "DB_PASSWORD", "TRUSTED_PROXY_SECRET"})
     void rejectsMissingDatabaseSettingBeforeContextRefresh(String variable, CapturedOutput output) {
         var settings = validSettings();
         settings.remove(variable);
@@ -76,7 +76,7 @@ class ProductionConfigurationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"DB_URL", "DB_USERNAME", "DB_PASSWORD"})
+    @ValueSource(strings = {"DB_URL", "DB_USERNAME", "DB_PASSWORD", "TRUSTED_PROXY_SECRET"})
     void rejectsBlankDatabaseSetting(String variable, CapturedOutput output) {
         var settings = validSettings();
         settings.put(variable, "  ");
@@ -148,6 +148,7 @@ class ProductionConfigurationTest {
         settings.put("DB_URL", "jdbc:postgresql://db.example.test:5432/alphaforge");
         settings.put("DB_USERNAME", "production_test_account");
         settings.put("DB_PASSWORD", TEST_PASSWORD);
+        settings.put("TRUSTED_PROXY_SECRET", "test-proxy-secret-with-at-least-32-characters");
         return settings;
     }
 
