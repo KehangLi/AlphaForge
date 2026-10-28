@@ -10,6 +10,10 @@ import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.ImportBatchRepository;
+import com.likehang.alphaforge.service.quota.GuestQuotaProperties;
+import com.likehang.alphaforge.service.quota.GuestQuotaService;
+import com.likehang.alphaforge.service.quota.UploadProperties;
+import org.springframework.util.unit.DataSize;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -43,9 +47,11 @@ class BrokerageAccountServiceTest {
     void setUp() {
         service = new BrokerageAccountService(
                 brokerageAccountRepository,
-                appUserRepository,
                 accountActivityRepository,
-                importBatchRepository
+                importBatchRepository,
+                new GuestQuotaService(new GuestQuotaProperties(2, 10, 5000, DataSize.ofMegabytes(1), 1000),
+                        new UploadProperties(DataSize.ofMegabytes(5), 10000), appUserRepository,
+                        brokerageAccountRepository, importBatchRepository, accountActivityRepository)
         );
     }
 
@@ -85,7 +91,7 @@ class BrokerageAccountServiceTest {
                 " usd "
         );
 
-        when(appUserRepository.findById(userId)).thenReturn(Optional.of(appUser));
+        when(appUserRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(appUser));
         when(brokerageAccountRepository.existsByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
                 userId,
                 "Trading 212",
@@ -116,7 +122,7 @@ class BrokerageAccountServiceTest {
                 "USD"
         );
 
-        when(appUserRepository.findById(userId)).thenReturn(Optional.of(appUser()));
+        when(appUserRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(appUser()));
         when(brokerageAccountRepository.existsByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
                 userId,
                 "Trading 212",
@@ -143,7 +149,7 @@ class BrokerageAccountServiceTest {
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Base currency must be a 3-letter code");
 
-        verify(appUserRepository, never()).findById(userId);
+        verify(appUserRepository, never()).findByIdForUpdate(userId);
         verify(brokerageAccountRepository, never()).save(any(BrokerageAccount.class));
     }
 
