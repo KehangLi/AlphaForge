@@ -27,6 +27,8 @@ server:
         same-site: lax
 
 alphaforge:
+  client-ip:
+    proxy-secret: ${TRUSTED_PROXY_SECRET}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   dev:
