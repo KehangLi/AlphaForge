@@ -77,4 +77,5 @@ new users can register through the API instead.
 
 This change supplies email/password registration, login, session persistence,
 request authentication, and CSRF protection. Guest upgrade, email verification,
-password reset, OAuth login, and login throttling are separate work items.
+password reset and OAuth login are separate work items. Authentication throttling
+and guest resource limits are documented in [abuse-protection.md](abuse-protection.md).
