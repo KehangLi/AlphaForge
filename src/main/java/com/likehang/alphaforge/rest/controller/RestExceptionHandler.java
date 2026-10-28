@@ -6,6 +6,11 @@ import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.exception.ConflictException;
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import com.likehang.alphaforge.exception.UnauthorizedException;
+import com.likehang.alphaforge.exception.RateLimitException;
+import com.likehang.alphaforge.exception.ResourceQuotaException;
+import com.likehang.alphaforge.exception.UploadTooLargeException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +27,25 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class RestExceptionHandler {
+
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<ApiErrorResponse> handleRateLimit(RateLimitException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.getRetryAfterSeconds()))
+                .body(new ApiErrorResponse(Instant.now(), 429, "Too Many Requests", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceQuotaException.class)
+    public ResponseEntity<ApiErrorResponse> handleQuota(ResourceQuotaException exception) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler({UploadTooLargeException.class, MaxUploadSizeExceededException.class})
+    public ResponseEntity<ApiErrorResponse> handleUploadLimit(Exception exception) {
+        String message = exception instanceof UploadTooLargeException
+                ? exception.getMessage() : "CSV file exceeds the upload size limit.";
+        return buildResponse(HttpStatus.CONTENT_TOO_LARGE, message);
+    }
 
     // the chain of controller throw CsvImportException, then come to here
     @ExceptionHandler(CsvImportException.class)
