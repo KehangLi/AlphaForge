@@ -1,18 +1,14 @@
 package com.likehang.alphaforge.service.quota;
 
-import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import com.likehang.alphaforge.exception.ResourceQuotaException;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.AppUserType;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
-import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.ImportBatchRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 public class GuestQuotaService {
@@ -21,27 +17,18 @@ public class GuestQuotaService {
 
     private final GuestQuotaProperties guest;
     private final UploadProperties uploads;
-    private final AppUserRepository users;
     private final BrokerageAccountRepository accounts;
     private final ImportBatchRepository batches;
     private final AccountActivityRepository activities;
 
-    public GuestQuotaService(GuestQuotaProperties guest, UploadProperties uploads, AppUserRepository users,
+    public GuestQuotaService(GuestQuotaProperties guest, UploadProperties uploads,
                              BrokerageAccountRepository accounts, ImportBatchRepository batches,
                              AccountActivityRepository activities) {
         this.guest = guest;
         this.uploads = uploads;
-        this.users = users;
         this.accounts = accounts;
         this.batches = batches;
         this.activities = activities;
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public AppUser lockUser(UUID userId) {
-        // Every account creation and import locks the same owner before counting or writing.
-        return users.findByIdForUpdate(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
