@@ -18,11 +18,13 @@ public interface ImportBatchRepository extends JpaRepository<ImportBatch, UUID> 
 
     Page<ImportBatch> findByBrokerageAccount_User_IdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
-    Page<ImportBatch> findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByCreatedAtDesc(
+    Page<ImportBatch> findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByImportSequenceDesc(
             UUID userId,
             UUID brokerageAccountId,
             Pageable pageable
     );
+
+    Optional<ImportBatch> findFirstByBrokerageAccount_IdOrderByImportSequenceDesc(UUID brokerageAccountId);
 
     Optional<ImportBatch> findByBrokerageAccount_User_IdAndBrokerageAccount_IdAndId(
             UUID userId,
