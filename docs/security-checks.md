@@ -16,8 +16,9 @@ The backend uses Trivy's archive-capable `rootfs` mode and requires the report t
 identify both Spring Boot and PostgreSQL libraries inside the JAR. An empty scan
 cannot pass as a vulnerability-free result.
 These jobs report findings; dependency upgrades are reviewed separately and validated
-with the application's tests and build. CodeQL and container-image scanning can be
-added in later changes.
+with the application's tests and build. The separate backend release workflow
+scans the exact container image, including OS packages, before uploading/deploying
+it; see [backend-release.md](backend-release.md). CodeQL remains separate work.
 
 ## Run the workflow
 
