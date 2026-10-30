@@ -68,3 +68,6 @@ jobs:
 
       - name: Test and build
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Test release and deployment helpers
+        run: python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'

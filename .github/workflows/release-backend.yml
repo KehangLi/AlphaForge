@@ -1,0 +1,182 @@
+name: Release Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Unused release version, for example v0.2.0'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+# Shared with rollback. Never cancel a deployment halfway through a migration.
+concurrency:
+  group: alphaforge-backend-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/kehangli/alphaforge-backend
+  RELEASE_VERSION: ${{ inputs.version }}
+  RELEASE_COMMIT: ${{ github.sha }}
+  AZURE_CORE_OUTPUT: none
+
+jobs:
+  verify:
+    name: Verify release source
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate main, commit and unused version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/backend_release.py preflight "$RELEASE_VERSION"
+      - name: Test deployment failure handling and release records
+        run: python3 -B -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Test security report validation
+        run: python3 -B -m unittest discover -s .github/scripts -p 'test_*.py'
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test and package with disposable PostgreSQL
+        run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+  image:
+    name: Build, scan and publish image
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.record.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Log in to GHCR with the workflow token
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Refuse to overwrite an existing image version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/backend_release.py check-image-tag "$RELEASE_VERSION"
+      - name: Build the AMD64 release image
+        run: |
+          ./scripts/build-image.sh --platform linux/amd64 \
+            --tag "$IMAGE_REPOSITORY:$RELEASE_VERSION" \
+            --version "$RELEASE_VERSION" --revision "$RELEASE_COMMIT"
+      - name: Scan this exact image, including OS and JAR dependencies
+        env:
+          TRIVY_IMAGE: aquasec/trivy:0.76.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-reports" "$RUNNER_TEMP/trivy-cache"
+          docker image save --output "$RUNNER_TEMP/backend-image.tar" "$IMAGE_REPOSITORY:$RELEASE_VERSION"
+          docker run --rm \
+            --mount "type=bind,source=$RUNNER_TEMP/backend-image.tar,target=/scan/backend-image.tar,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/release-reports,target=/reports" \
+            --mount "type=bind,source=$RUNNER_TEMP/trivy-cache,target=/root/.cache/trivy" \
+            "$TRIVY_IMAGE" image --input /scan/backend-image.tar --scanners vuln \
+            --list-all-pkgs --format json --output /reports/image-scan.json \
+            --exit-code 0 --timeout 20m --no-progress
+          python3 scripts/backend_release.py check-scan "$RUNNER_TEMP/release-reports/image-scan.json" "$RUNNER_TEMP/backend-image.tar"
+      - name: Push the scanned image
+        run: docker push "$IMAGE_REPOSITORY:$RELEASE_VERSION"
+      - name: Record the AMD64 digest and verify its release labels
+        id: record
+        run: |
+          python3 scripts/backend_release.py image-record "$IMAGE_REPOSITORY:$RELEASE_VERSION" \
+            "$RELEASE_VERSION" "$RELEASE_COMMIT" "$RUNNER_TEMP/release-reports/target.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          target = json.loads((Path(os.environ['RUNNER_TEMP']) / 'release-reports/target.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('image=' + target['image'] + '\n')
+          PY
+      - name: Keep scan and target records even if a later step fails
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release-reports/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  deploy:
+    name: Deploy and record release
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: backend-production
+    permissions:
+      contents: write
+      packages: read
+      id-token: write
+    env:
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+      RELEASE_IMAGE: ${{ needs.image.outputs.image }}
+      RELEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Recheck the version before changing production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/backend_release.py preflight "$RELEASE_VERSION"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Generate target record from the uploaded digest
+        run: |
+          mkdir -p "$RUNNER_TEMP/deployment"
+          python3 scripts/backend_release.py image-record "$RELEASE_IMAGE" \
+            "$RELEASE_VERSION" "$RELEASE_COMMIT" "$RUNNER_TEMP/deployment/target.json"
+      - name: Log in to Azure with a short-lived identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install Container Apps CLI support
+        run: az extension add --name containerapp --upgrade --allow-preview true --only-show-errors
+      - name: Update only the image and verify the serving release
+        run: |
+          python3 scripts/backend_release.py deploy "$RUNNER_TEMP/deployment/target.json" \
+            "$RUNNER_TEMP/deployment/deployment.json"
+      - name: Create Git tag and publish the verified backend release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 scripts/backend_release.py publish "$RELEASE_VERSION" "$RELEASE_COMMIT" \
+            "$RUNNER_TEMP/deployment/deployment.json"
+      - name: Keep recovery information, including for failed deployments
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-deployment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/deployment/
+          if-no-files-found: ignore
+          retention-days: 90

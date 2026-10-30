@@ -146,8 +146,9 @@ This scans both OS packages and the Java libraries in the image. The first run
 downloads vulnerability databases. A clean dependency/JAR scan does not guarantee
 a clean container image; the JRE and OS add their own packages. Resolve or assess
 findings before release. See [security-checks.md](security-checks.md) for the
-existing severity policy. Publishing to a registry and Azure deployment are
-separate steps; the build script only loads a local image.
+existing severity policy. The build script only loads a local image. For the
+manual versioned GHCR/Azure release and rollback workflows, see
+[backend-release.md](backend-release.md).
 
 ## References
 

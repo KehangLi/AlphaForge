@@ -1,0 +1,96 @@
+name: Roll Back Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Published backend release whose record to use, for example v0.2.0'
+        required: false
+        type: string
+      deployment_run_id:
+        description: 'Or a completed Release Backend run ID (use after a failed release); leave version empty'
+        required: false
+        type: string
+      target:
+        description: 'Deploy that release, or the image running immediately before it'
+        required: true
+        type: choice
+        options:
+          - previous
+          - release
+      database_compatible:
+        description: 'I checked that the target image supports the current database schema'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alphaforge-backend-production
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.database_compatible }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: backend-production
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      id-token: write
+    env:
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+      RELEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      ROLLBACK_TARGET: ${{ inputs.target }}
+      DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
+      DATABASE_COMPATIBLE: ${{ inputs.database_compatible }}
+      AZURE_CORE_OUTPUT: none
+    steps:
+      - name: Validate manual rollback request
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          test "$DATABASE_COMPATIBLE" = true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Resolve the exact recovery image from a published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/deployment"
+          python3 scripts/backend_release.py rollback-target "$ROLLBACK_TARGET" \
+            "$RUNNER_TEMP/deployment/target.json" --version "$RELEASE_VERSION" --run-id "$DEPLOYMENT_RUN_ID"
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install Container Apps CLI support
+        run: az extension add --name containerapp --upgrade --allow-preview true --only-show-errors
+      - name: Redeploy the recorded image and verify it
+        run: |
+          python3 scripts/backend_release.py deploy "$RUNNER_TEMP/deployment/target.json" \
+            "$RUNNER_TEMP/deployment/deployment.json"
+      - name: Preserve rollback outcome
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-rollback-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/deployment/
+          if-no-files-found: ignore
+          retention-days: 90

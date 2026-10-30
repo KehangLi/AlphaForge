@@ -13,12 +13,19 @@ COPY src/main/ ./src/main/
 RUN --mount=type=cache,target=/root/.m2 \
     ./mvnw --batch-mode --no-transfer-progress -Dmaven.test.skip=true package
 
-FROM eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c AS runtime
+FROM eclipse-temurin:21-jre-noble@sha256:161310cd5bd41fd549d19cf9f90b614897cb4a1532555c613b43b7e0628fe5d6 AS runtime
+ARG BUILD_VERSION=development
+ARG BUILD_REVISION=unknown
+LABEL org.opencontainers.image.source="https://github.com/KehangLi/AlphaForge" \
+      org.opencontainers.image.version="$BUILD_VERSION" \
+      org.opencontainers.image.revision="$BUILD_REVISION"
 WORKDIR /app
 COPY --from=build --chown=10001:10001 /workspace/target/*.jar /app/application.jar
 
 # Container deployments default to production; connection details are supplied at runtime.
-ENV SPRING_PROFILES_ACTIVE=prod
+ENV SPRING_PROFILES_ACTIVE=prod \
+    ALPHAFORGE_RELEASE_VERSION="$BUILD_VERSION" \
+    ALPHAFORGE_RELEASE_COMMIT="$BUILD_REVISION"
 USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/application.jar"]
