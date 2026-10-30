@@ -1,6 +1,7 @@
 package com.likehang.alphaforge.service;
 
 import com.likehang.alphaforge.exception.BadRequestException;
+import com.likehang.alphaforge.exception.ConflictException;
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import com.likehang.alphaforge.rest.dto.response.ImportBatchPageResponse;
 import com.likehang.alphaforge.rest.dto.response.ImportBatchResponse;
@@ -25,15 +26,21 @@ public class ImportBatchService {
     private final ImportBatchRepository importBatchRepository;
     private final AccountActivityRepository accountActivityRepository;
     private final BrokerageAccountRepository brokerageAccountRepository;
+    private final UserWriteLockService userWriteLockService;
+    private final AccountActivityHoldingValidationService holdingValidationService;
 
     public ImportBatchService(
             ImportBatchRepository importBatchRepository,
             AccountActivityRepository accountActivityRepository,
-            BrokerageAccountRepository brokerageAccountRepository
+            BrokerageAccountRepository brokerageAccountRepository,
+            UserWriteLockService userWriteLockService,
+            AccountActivityHoldingValidationService holdingValidationService
     ) {
         this.importBatchRepository = importBatchRepository;
         this.accountActivityRepository = accountActivityRepository;
         this.brokerageAccountRepository = brokerageAccountRepository;
+        this.userWriteLockService = userWriteLockService;
+        this.holdingValidationService = holdingValidationService;
     }
 
     @Transactional(readOnly = true)
@@ -43,14 +50,16 @@ public class ImportBatchService {
             Pageable pageable
     ) {
         validateUserAndBrokerageAccount(userId, brokerageAccountId);
+        UUID latestBatchId = importBatchRepository.findFirstByBrokerageAccount_IdOrderByImportSequenceDesc(brokerageAccountId)
+                .map(ImportBatch::getId).orElse(null);
 
         Page<ImportBatchResponse> page = importBatchRepository
-                .findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByCreatedAtDesc(
+                .findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByImportSequenceDesc(
                         userId,
                         brokerageAccountId,
                         pageable
                 )
-                .map(this::toResponse);
+                .map(batch -> toResponse(batch, batch.getId().equals(latestBatchId)));
 
         log.info(
                 "Loaded import batches: brokerageAccount={}, page={}, size={}, totalElements={}",
@@ -78,6 +87,10 @@ public class ImportBatchService {
             UUID brokerageAccountId,
             UUID importBatchId
     ) {
+        if (userId == null) {
+            throw new BadRequestException("User id is required");
+        }
+        userWriteLockService.lockUser(userId);
         validateUserAndBrokerageAccount(userId, brokerageAccountId);
 
         if (importBatchId == null) {
@@ -93,6 +106,19 @@ public class ImportBatchService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Import batch not found: " + importBatchId
                 ));
+
+        ImportBatch latest = importBatchRepository.findFirstByBrokerageAccount_IdOrderByImportSequenceDesc(brokerageAccountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Import batch not found: " + importBatchId));
+        if (!latest.getId().equals(importBatchId)) {
+            throw new ConflictException("Only the latest import batch can be deleted. Delete batch "
+                    + latest.getId() + " first, then retry.");
+        }
+        // Also protect accounts imported before the LIFO rule and deterministic ordering existed.
+        try {
+            holdingValidationService.validateAfterRemovingBatch(brokerageAccountId, importBatchId);
+        } catch (BadRequestException exception) {
+            throw new ConflictException("Deleting this batch would leave invalid holdings. " + exception.getMessage());
+        }
 
         long deletedActivities = accountActivityRepository.deleteByImportBatch_Id(importBatchId);
         importBatchRepository.delete(importBatch);
@@ -120,7 +146,7 @@ public class ImportBatchService {
                 ));
     }
 
-    private ImportBatchResponse toResponse(ImportBatch importBatch) {
+    private ImportBatchResponse toResponse(ImportBatch importBatch, boolean deletable) {
         return new ImportBatchResponse(
                 importBatch.getId(),
                 importBatch.getBrokerageAccount().getId(),
@@ -133,7 +159,8 @@ public class ImportBatchService {
                 importBatch.getStartedAt(),
                 importBatch.getCompletedAt(),
                 importBatch.getCreatedAt(),
-                importBatch.getUpdatedAt()
+                importBatch.getUpdatedAt(),
+                deletable
         );
     }
 }
