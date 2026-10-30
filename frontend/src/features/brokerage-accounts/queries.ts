@@ -185,7 +185,7 @@ export function useDeleteImportBatchMutation() {
     mutationFn: ({ brokerageAccountId, importBatchId }: DeleteImportBatchParams) =>
       deleteImportBatch(brokerageAccountId, importBatchId),
     onMutate: () => getCachedUserId(queryClient),
-    onSuccess: async (_result, variables, userId) => {
+    onSettled: async (_result, _error, variables, userId) => {
       if (!isCurrentUser(queryClient, userId)) return;
       await Promise.all([
         queryClient.invalidateQueries({
