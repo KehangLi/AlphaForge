@@ -7,6 +7,7 @@ import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.rest.dto.response.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.rest.dto.response.CsvImportRowError;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
+import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.ImportBatch;
 import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
@@ -36,7 +37,9 @@ public class AccountActivityCsvImportService {
     private final AccountActivityCsvParser accountActivityCsvParser;
     private final CsvImportFileSupport csvImportFileSupport;
     private final AccountActivityHoldingValidationService accountActivityHoldingValidationService;
+    private final AccountActivityImportIntegrityService importIntegrityService;
     private final GuestQuotaService guestQuotaService;
+    private final UserWriteLockService userWriteLockService;
     private final RateLimitService rateLimits;
     private final String defaultBrokerName;
     private final String defaultAccountName;
@@ -48,7 +51,9 @@ public class AccountActivityCsvImportService {
             AccountActivityCsvParser accountActivityCsvParser,
             CsvImportFileSupport csvImportFileSupport,
             AccountActivityHoldingValidationService accountActivityHoldingValidationService,
+            AccountActivityImportIntegrityService importIntegrityService,
             GuestQuotaService guestQuotaService,
+            UserWriteLockService userWriteLockService,
             RateLimitService rateLimits,
             @Value("${alphaforge.dev.brokerage-account.broker-name:}") String defaultBrokerName,
             @Value("${alphaforge.dev.brokerage-account.account-name:}") String defaultAccountName
@@ -59,7 +64,9 @@ public class AccountActivityCsvImportService {
         this.accountActivityCsvParser = accountActivityCsvParser;
         this.csvImportFileSupport = csvImportFileSupport;
         this.accountActivityHoldingValidationService = accountActivityHoldingValidationService;
+        this.importIntegrityService = importIntegrityService;
         this.guestQuotaService = guestQuotaService;
+        this.userWriteLockService = userWriteLockService;
         this.rateLimits = rateLimits;
         this.defaultBrokerName = defaultBrokerName.trim();
         this.defaultAccountName = defaultAccountName.trim();
@@ -67,8 +74,13 @@ public class AccountActivityCsvImportService {
 
     @Transactional
     public AccountActivityCsvImportResult importCsvForConfiguredDefaultAccount(UUID userId, MultipartFile file) {
+        if (userId == null) {
+            throw new CsvImportException("User id is required");
+        }
+        rateLimits.check(RateLimitService.Rule.UPLOAD_USER, userId.toString());
+        AppUser user = userWriteLockService.lockUser(userId);
         BrokerageAccount brokerageAccount = findConfiguredDefaultAccount(userId);
-        return importCsvForBrokerageAccount(brokerageAccount, file);
+        return importCsvForBrokerageAccount(user, brokerageAccount, file);
     }
 
     @Transactional
@@ -81,15 +93,15 @@ public class AccountActivityCsvImportService {
             throw new CsvImportException("Brokerage account id is required");
         }
 
+        rateLimits.check(RateLimitService.Rule.UPLOAD_USER, userId.toString());
+        AppUser user = userWriteLockService.lockUser(userId);
         BrokerageAccount brokerageAccount = brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId)
                 .orElseThrow(() -> new CsvImportException("Brokerage account not found: " + brokerageAccountId));
-        return importCsvForBrokerageAccount(brokerageAccount, file);
+        return importCsvForBrokerageAccount(user, brokerageAccount, file);
     }
 
-    private AccountActivityCsvImportResult importCsvForBrokerageAccount(BrokerageAccount brokerageAccount, MultipartFile file) {
-        UUID userId = brokerageAccount.getUser().getId();
-        rateLimits.check(RateLimitService.Rule.UPLOAD_USER, userId.toString());
-        GuestQuotaService.ImportAllowance allowance = guestQuotaService.checkImport(guestQuotaService.lockUser(userId));
+    private AccountActivityCsvImportResult importCsvForBrokerageAccount(AppUser user, BrokerageAccount brokerageAccount, MultipartFile file) {
+        GuestQuotaService.ImportAllowance allowance = guestQuotaService.checkImport(user);
         byte[] fileBytes = csvImportFileSupport.readFileBytes(file, allowance.maxBytes());
         String fileHash = csvImportFileSupport.sha256Hex(fileBytes);
         UUID brokerageAccountId = brokerageAccount.getId();
@@ -106,12 +118,13 @@ public class AccountActivityCsvImportService {
         importBatch.setFileHash(fileHash);
         importBatch.setStatus(ImportBatchStatus.PROCESSING);
         importBatch.setStartedAt(Instant.now());
-        importBatch = importBatchRepository.save(importBatch);
+        importBatch = importBatchRepository.saveAndFlush(importBatch);
 
         AccountActivityCsvParseResult parseResult = accountActivityCsvParser.parse(
                 fileBytes, importBatch, brokerageAccount, allowance.maxRows());
         guestQuotaService.checkActivityCount(allowance, parseResult.activities().size());
         if (!parseResult.activities().isEmpty()) {
+            importIntegrityService.validate(brokerageAccountId, parseResult.activities());
             accountActivityHoldingValidationService.validateNoNegativeHoldings(brokerageAccountId, parseResult.activities());
             accountActivityRepository.saveAll(parseResult.activities());
         }
