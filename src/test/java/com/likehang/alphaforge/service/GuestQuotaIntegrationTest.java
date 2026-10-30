@@ -142,7 +142,11 @@ class GuestQuotaIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     private String csv(int rows, String amount) {
-        return "Action,Time (UTC),Total,Currency (Total)\n"
-                + ("Interest on cash,2026-10-01 00:00:00+00:00," + amount + ",EUR\n").repeat(rows);
+        StringBuilder csv = new StringBuilder("Action,Time (UTC),Total,Currency (Total)\n");
+        for (int row = 0; row < rows; row++) {
+            csv.append("Interest on cash,2026-10-01 00:00:0").append(row).append("+00:00,")
+                    .append(amount).append(",EUR\n");
+        }
+        return csv.toString();
     }
 }

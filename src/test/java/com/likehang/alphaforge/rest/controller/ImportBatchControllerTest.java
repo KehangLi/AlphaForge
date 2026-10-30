@@ -6,6 +6,7 @@ import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.service.CurrentUserService;
 import com.likehang.alphaforge.service.ImportBatchService;
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
+import com.likehang.alphaforge.exception.ConflictException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
@@ -62,6 +63,7 @@ class ImportBatchControllerTest {
                 .andExpect(jsonPath("$.importBatches[0].totalRows").value(10))
                 .andExpect(jsonPath("$.importBatches[0].successRows").value(9))
                 .andExpect(jsonPath("$.importBatches[0].failedRows").value(1))
+                .andExpect(jsonPath("$.importBatches[0].deletable").value(true))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(25))
                 .andExpect(jsonPath("$.totalElements").value(1))
@@ -120,6 +122,15 @@ class ImportBatchControllerTest {
                 .andExpect(jsonPath("$.message").value("Import batch not found: " + importBatchId));
     }
 
+    @Test
+    void returnsConflictWhenDeletingAnOlderImportBatch() throws Exception {
+        importBatchService.deleteException = new ConflictException("Only the latest import batch can be deleted.");
+        mockMvc.perform(delete("/api/brokerage-accounts/{account}/import-batches/{batch}", brokerageAccountId, importBatchId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Only the latest import batch can be deleted."));
+    }
+
     private ImportBatchPageResponse result() {
         return new ImportBatchPageResponse(
                 brokerageAccountId,
@@ -135,7 +146,8 @@ class ImportBatchControllerTest {
                         Instant.parse("2026-07-01T10:15:30Z"),
                         Instant.parse("2026-07-01T10:15:40Z"),
                         Instant.parse("2026-07-01T10:15:30Z"),
-                        Instant.parse("2026-07-01T10:15:40Z")
+                        Instant.parse("2026-07-01T10:15:40Z"),
+                        true
                 )),
                 0,
                 25,
@@ -149,7 +161,7 @@ class ImportBatchControllerTest {
     private static class FakeImportBatchService extends ImportBatchService {
 
         private ImportBatchPageResponse result;
-        private ResourceNotFoundException deleteException;
+        private RuntimeException deleteException;
         private UUID requestedListUserId;
         private UUID requestedListBrokerageAccountId;
         private Pageable requestedPageable;
@@ -159,7 +171,7 @@ class ImportBatchControllerTest {
         private UUID requestedDeleteImportBatchId;
 
         private FakeImportBatchService() {
-            super(null, null, null);
+            super(null, null, null, null, null);
         }
 
         @Override

@@ -68,9 +68,11 @@ class AccountActivityCsvImportServiceTest {
                 accountActivityCsvParser,
                 csvImportFileSupport,
                 accountActivityHoldingValidationService,
+                new AccountActivityImportIntegrityService(accountActivityRepository),
                 new GuestQuotaService(new GuestQuotaProperties(2, 10, 5000, DataSize.ofMegabytes(1), 1000),
-                        new UploadProperties(DataSize.ofMegabytes(5), 10000), appUserRepository,
+                        new UploadProperties(DataSize.ofMegabytes(5), 10000),
                         brokerageAccountRepository, importBatchRepository, accountActivityRepository),
+                new UserWriteLockService(appUserRepository),
                 mock(RateLimitService.class),
                 "Manual CSV Upload",
                 "Default Local Account"
@@ -85,13 +87,14 @@ class AccountActivityCsvImportServiceTest {
 
         when(importBatchRepository.findByBrokerageAccount_IdAndFileHash(eq(brokerageAccountId), anyString()))
                 .thenReturn(Optional.empty());
-        when(importBatchRepository.save(any(ImportBatch.class))).thenAnswer(invocation -> {
+        when(importBatchRepository.saveAndFlush(any(ImportBatch.class))).thenAnswer(invocation -> {
             ImportBatch importBatch = invocation.getArgument(0);
             if (importBatch.getId() == null) {
                 importBatch.setId(importBatchId);
             }
             return importBatch;
         });
+        when(importBatchRepository.save(any(ImportBatch.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(accountActivityRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(accountActivityRepository.findByBrokerageAccount_Id(brokerageAccountId)).thenReturn(List.of());
     }
