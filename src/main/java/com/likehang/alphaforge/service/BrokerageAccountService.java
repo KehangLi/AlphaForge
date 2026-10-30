@@ -28,17 +28,20 @@ public class BrokerageAccountService {
     private final AccountActivityRepository accountActivityRepository;
     private final ImportBatchRepository importBatchRepository;
     private final GuestQuotaService guestQuotaService;
+    private final UserWriteLockService userWriteLockService;
 
     public BrokerageAccountService(
             BrokerageAccountRepository brokerageAccountRepository,
             AccountActivityRepository accountActivityRepository,
             ImportBatchRepository importBatchRepository,
-            GuestQuotaService guestQuotaService
+            GuestQuotaService guestQuotaService,
+            UserWriteLockService userWriteLockService
     ) {
         this.brokerageAccountRepository = brokerageAccountRepository;
         this.accountActivityRepository = accountActivityRepository;
         this.importBatchRepository = importBatchRepository;
         this.guestQuotaService = guestQuotaService;
+        this.userWriteLockService = userWriteLockService;
     }
 
     @Transactional(readOnly = true)
@@ -80,7 +83,7 @@ public class BrokerageAccountService {
         validateMaxLength(accountName, 120, "Account name");
         validateMaxLength(accountNumberMasked, 80, "Account number masked");
 
-        AppUser appUser = guestQuotaService.lockUser(userId);
+        AppUser appUser = userWriteLockService.lockUser(userId);
         guestQuotaService.checkAccountCreation(appUser);
 
         if (brokerageAccountRepository.existsByUser_IdAndBrokerNameIgnoreCaseAndAccountNameIgnoreCase(
@@ -124,6 +127,7 @@ public class BrokerageAccountService {
             throw new BadRequestException("Brokerage account id is required");
         }
 
+        userWriteLockService.lockUser(userId);
         BrokerageAccount brokerageAccount = brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Brokerage account not found: " + brokerageAccountId

@@ -49,14 +49,16 @@ export function ImportBatchCard({
 
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="text-xs font-medium text-[#65746a]">
-          Deleting removes this upload and its rows.
+          {batch.deletable
+            ? "Deleting removes this upload and its rows."
+            : "Delete newer imports first."}
         </p>
 
-        {isConfirming ? (
+        {isConfirming && batch.deletable ? (
           <div className="flex shrink-0 gap-2">
             <Button
               className="px-3 py-1.5 text-xs"
-              disabled={deleting}
+              disabled={disabled || deleting}
               onClick={() => setIsConfirming(false)}
               variant="secondary"
             >
@@ -64,7 +66,7 @@ export function ImportBatchCard({
             </Button>
             <Button
               className="bg-[#9a3412] px-3 py-1.5 text-xs hover:bg-[#7c2d12]"
-              disabled={deleting}
+              disabled={disabled || deleting}
               onClick={() => {
                 onDelete(batch.id);
                 setIsConfirming(false);
@@ -76,7 +78,7 @@ export function ImportBatchCard({
         ) : (
           <Button
             className="shrink-0 px-3 py-1.5 text-xs"
-            disabled={disabled || deleting}
+            disabled={disabled || deleting || !batch.deletable}
             onClick={() => setIsConfirming(true)}
             variant="secondary"
           >

@@ -78,6 +78,7 @@ export type AccountActivityCsvImportResult = {
 };
 
 export type ImportBatchResponse = {
+  deletable: boolean;
   id: string;
   brokerageAccountId: string;
   originalFilename: string;

@@ -6,7 +6,8 @@ import com.likehang.alphaforge.repository.AccountActivityRepository;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.math.RoundingMode;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -31,6 +32,18 @@ public class AccountActivityHoldingValidationService {
                 accountActivityRepository.findByBrokerageAccount_Id(brokerageAccountId)
         );
         activities.addAll(incomingActivities);
+        validate(activities);
+    }
+
+    public void validateAfterRemovingBatch(UUID brokerageAccountId, UUID importBatchId) {
+        List<AccountActivity> remaining = new ArrayList<>(accountActivityRepository
+                .findByBrokerageAccount_Id(brokerageAccountId).stream()
+                .filter(activity -> !importBatchId.equals(activity.getImportBatch().getId()))
+                .toList());
+        validate(remaining);
+    }
+
+    private void validate(List<AccountActivity> activities) {
         activities.sort(activityOrder());
 
         Map<String, BigDecimal> holdings = new HashMap<>();
@@ -55,7 +68,10 @@ public class AccountActivityHoldingValidationService {
 
     private Comparator<AccountActivity> activityOrder() {
         return Comparator
-                .comparing(AccountActivity::getOccurredAt, Comparator.nullsLast(OffsetDateTime::compareTo))
+                .comparing((AccountActivity activity) -> activity.getOccurredAt().toInstant()
+                        .plusNanos(500).truncatedTo(ChronoUnit.MICROS))
+                .thenComparingLong(activity -> activity.getImportBatch() == null ? 0
+                        : activity.getImportBatch().getImportSequence())
                 .thenComparingInt(AccountActivity::getRowNumber);
     }
 
@@ -76,7 +92,7 @@ public class AccountActivityHoldingValidationService {
             throw new BadRequestException("Trade row is missing number of shares: row " + activity.getRowNumber());
         }
 
-        BigDecimal absoluteShares = shares.abs();
+        BigDecimal absoluteShares = shares.setScale(10, RoundingMode.HALF_UP).abs();
         if (absoluteShares.compareTo(ZERO) == 0) {
             return null;
         }

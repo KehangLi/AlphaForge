@@ -1,6 +1,7 @@
 package com.likehang.alphaforge.service;
 
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
+import com.likehang.alphaforge.exception.ConflictException;
 import com.likehang.alphaforge.rest.dto.response.ImportBatchPageResponse;
 import com.likehang.alphaforge.rest.dto.response.ImportBatchResponse;
 import com.likehang.alphaforge.model.entity.AppUser;
@@ -36,6 +37,7 @@ class ImportBatchServiceTest {
     private final ImportBatchRepository importBatchRepository = mock(ImportBatchRepository.class);
     private final AccountActivityRepository accountActivityRepository = mock(AccountActivityRepository.class);
     private final BrokerageAccountRepository brokerageAccountRepository = mock(BrokerageAccountRepository.class);
+    private final UserWriteLockService userWriteLockService = mock(UserWriteLockService.class);
 
     private final UUID userId = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private final UUID brokerageAccountId = UUID.fromString("20000000-0000-0000-0000-000000000001");
@@ -48,7 +50,9 @@ class ImportBatchServiceTest {
         service = new ImportBatchService(
                 importBatchRepository,
                 accountActivityRepository,
-                brokerageAccountRepository
+                brokerageAccountRepository,
+                userWriteLockService,
+                new AccountActivityHoldingValidationService(accountActivityRepository)
         );
     }
 
@@ -60,7 +64,9 @@ class ImportBatchServiceTest {
 
         when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
                 .thenReturn(Optional.of(brokerageAccount));
-        when(importBatchRepository.findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByCreatedAtDesc(
+        when(importBatchRepository.findFirstByBrokerageAccount_IdOrderByImportSequenceDesc(brokerageAccountId))
+                .thenReturn(Optional.of(importBatch));
+        when(importBatchRepository.findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByImportSequenceDesc(
                 userId,
                 brokerageAccountId,
                 pageable
@@ -95,7 +101,7 @@ class ImportBatchServiceTest {
                 .hasMessageContaining(brokerageAccountId.toString());
 
         verify(importBatchRepository, never())
-                .findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByCreatedAtDesc(
+                .findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByImportSequenceDesc(
                         userId,
                         brokerageAccountId,
                         pageable
@@ -115,12 +121,34 @@ class ImportBatchServiceTest {
                 importBatchId
         )).thenReturn(Optional.of(importBatch));
         when(accountActivityRepository.deleteByImportBatch_Id(importBatchId)).thenReturn(3L);
+        when(importBatchRepository.findFirstByBrokerageAccount_IdOrderByImportSequenceDesc(brokerageAccountId))
+                .thenReturn(Optional.of(importBatch));
 
         service.deleteImportBatch(userId, brokerageAccountId, importBatchId);
 
-        InOrder inOrder = inOrder(accountActivityRepository, importBatchRepository);
+        InOrder inOrder = inOrder(userWriteLockService, brokerageAccountRepository, accountActivityRepository, importBatchRepository);
+        inOrder.verify(userWriteLockService).lockUser(userId);
+        inOrder.verify(brokerageAccountRepository).findByIdAndUser_Id(brokerageAccountId, userId);
         inOrder.verify(accountActivityRepository).deleteByImportBatch_Id(importBatchId);
         inOrder.verify(importBatchRepository).delete(importBatch);
+    }
+
+    @Test
+    void rejectsDeletingAnOlderBatchWithoutRemovingAnyRows() {
+        BrokerageAccount account = brokerageAccount();
+        ImportBatch older = importBatch(account);
+        ImportBatch latest = new ImportBatch(account, "newer.csv");
+        latest.setId(UUID.randomUUID());
+        when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId)).thenReturn(Optional.of(account));
+        when(importBatchRepository.findByBrokerageAccount_User_IdAndBrokerageAccount_IdAndId(
+                userId, brokerageAccountId, importBatchId)).thenReturn(Optional.of(older));
+        when(importBatchRepository.findFirstByBrokerageAccount_IdOrderByImportSequenceDesc(brokerageAccountId))
+                .thenReturn(Optional.of(latest));
+
+        assertThatThrownBy(() -> service.deleteImportBatch(userId, brokerageAccountId, importBatchId))
+                .isInstanceOf(ConflictException.class).hasMessageContaining("latest").hasMessageContaining(latest.getId().toString());
+        verify(accountActivityRepository, never()).deleteByImportBatch_Id(any());
+        verify(importBatchRepository, never()).delete(any(ImportBatch.class));
     }
 
     @Test
@@ -182,6 +210,7 @@ class ImportBatchServiceTest {
         assertThat(importBatch.totalRows()).isEqualTo(10);
         assertThat(importBatch.successRows()).isEqualTo(9);
         assertThat(importBatch.failedRows()).isEqualTo(1);
+        assertThat(importBatch.deletable()).isTrue();
         assertThat(importBatch.startedAt()).isEqualTo(Instant.parse("2026-07-01T10:15:30Z"));
         assertThat(importBatch.completedAt()).isEqualTo(Instant.parse("2026-07-01T10:15:40Z"));
     }

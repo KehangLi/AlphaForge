@@ -50,8 +50,9 @@ class BrokerageAccountServiceTest {
                 accountActivityRepository,
                 importBatchRepository,
                 new GuestQuotaService(new GuestQuotaProperties(2, 10, 5000, DataSize.ofMegabytes(1), 1000),
-                        new UploadProperties(DataSize.ofMegabytes(5), 10000), appUserRepository,
-                        brokerageAccountRepository, importBatchRepository, accountActivityRepository)
+                        new UploadProperties(DataSize.ofMegabytes(5), 10000),
+                        brokerageAccountRepository, importBatchRepository, accountActivityRepository),
+                new UserWriteLockService(appUserRepository)
         );
     }
 
@@ -157,6 +158,7 @@ class BrokerageAccountServiceTest {
     void deletesBrokerageAccountAndItsImportedData() {
         BrokerageAccount brokerageAccount = brokerageAccount();
 
+        when(appUserRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(appUser()));
         when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
                 .thenReturn(Optional.of(brokerageAccount));
         when(accountActivityRepository.deleteByBrokerageAccount_Id(brokerageAccountId)).thenReturn(12L);
@@ -164,7 +166,9 @@ class BrokerageAccountServiceTest {
 
         service.deleteBrokerageAccount(userId, brokerageAccountId);
 
-        InOrder inOrder = inOrder(accountActivityRepository, importBatchRepository, brokerageAccountRepository);
+        InOrder inOrder = inOrder(appUserRepository, accountActivityRepository, importBatchRepository, brokerageAccountRepository);
+        inOrder.verify(appUserRepository).findByIdForUpdate(userId);
+        inOrder.verify(brokerageAccountRepository).findByIdAndUser_Id(brokerageAccountId, userId);
         inOrder.verify(accountActivityRepository).deleteByBrokerageAccount_Id(brokerageAccountId);
         inOrder.verify(importBatchRepository).deleteByBrokerageAccount_Id(brokerageAccountId);
         inOrder.verify(brokerageAccountRepository).delete(brokerageAccount);
@@ -172,6 +176,7 @@ class BrokerageAccountServiceTest {
 
     @Test
     void rejectsBrokerageAccountThatIsNotOwnedByUserWhenDeleting() {
+        when(appUserRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(appUser()));
         when(brokerageAccountRepository.findByIdAndUser_Id(brokerageAccountId, userId))
                 .thenReturn(Optional.empty());
 

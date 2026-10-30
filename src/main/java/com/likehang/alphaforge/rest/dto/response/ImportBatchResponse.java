@@ -17,6 +17,7 @@ public record ImportBatchResponse(
         Instant startedAt,
         Instant completedAt,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        boolean deletable
 ) {
 }

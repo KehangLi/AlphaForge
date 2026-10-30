@@ -164,7 +164,7 @@ class BrokerageAccountControllerTest {
         private UUID requestedDeleteBrokerageAccountId;
 
         private FakeBrokerageAccountService() {
-            super(null, null, null, null);
+            super(null, null, null, null, null);
         }
 
         @Override

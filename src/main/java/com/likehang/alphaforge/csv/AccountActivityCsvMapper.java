@@ -18,12 +18,11 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 
-// 把从csv DTO来的字符串转换成正确类型，组装成Entity
+// transfer the String from csv DTO to correct form，then build into Entity
 
 @Component
 public class AccountActivityCsvMapper {
 
-    // 列表里放了两个支持的函数
     private static final List<DateTimeFormatter> TIME_FORMATTERS = List.of(
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX"),
             DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -134,7 +133,7 @@ public class AccountActivityCsvMapper {
         return trimmed;
     }
 
-    // 判断这行是否被导入过 排查重复导入
+    // Preserve a hash of the raw export; normalized deduplication happens in the service.
     private static String hashRawRow(AccountActivityCsvRow row) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

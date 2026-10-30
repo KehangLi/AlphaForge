@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.Generated;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -43,6 +44,10 @@ public class ImportBatch {
 
     @Column(name = "file_hash", length = 64)
     private String fileHash;
+
+    @Generated
+    @Column(name = "import_sequence", nullable = false, insertable = false, updatable = false)
+    private long importSequence;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
@@ -119,6 +124,10 @@ public class ImportBatch {
 
     public void setFileHash(String fileHash) {
         this.fileHash = fileHash;
+    }
+
+    public long getImportSequence() {
+        return importSequence;
     }
 
     public ImportBatchStatus getStatus() {
