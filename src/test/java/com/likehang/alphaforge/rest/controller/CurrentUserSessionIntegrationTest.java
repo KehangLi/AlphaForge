@@ -72,6 +72,7 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertUnauthorized(request(client, "POST", "/api/brokerage-accounts", ACCOUNT_REQUEST));
         assertUnauthorized(request(client, "DELETE", accountPath));
         assertUnauthorized(request(client, "GET", accountPath + "/account-activities"));
+        assertUnauthorized(request(client, "GET", accountPath + "/holdings"));
         assertUnauthorized(uploadCsv(client, accountId));
         assertUnauthorized(request(client, "GET", accountPath + "/import-batches"));
         assertUnauthorized(request(client, "DELETE", accountPath + "/import-batches/" + UUID.randomUUID()));
@@ -146,12 +147,14 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertListedAccount(firstClient, firstAccountId);
         assertListedAccount(secondClient, secondAccountId);
         assertThat(request(secondClient, "GET", activitiesPath).statusCode()).isEqualTo(404);
+        assertThat(request(secondClient, "GET", firstAccountPath + "/holdings").statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "GET", batchesPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "DELETE", firstAccountPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "DELETE", batchesPath + "/" + batchId).statusCode()).isEqualTo(404);
         assertThat(uploadCsv(secondClient, firstAccountId).statusCode()).isEqualTo(400);
 
         assertTotalElements(request(firstClient, "GET", activitiesPath), 1);
+        assertTotalElements(request(firstClient, "GET", firstAccountPath + "/holdings"), 0);
         assertTotalElements(request(firstClient, "GET", batchesPath), 1);
         assertListedAccount(firstClient, firstAccountId);
         assertThat(request(firstClient, "DELETE", batchesPath + "/" + batchId).statusCode()).isEqualTo(204);
@@ -176,6 +179,28 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT user_id FROM brokerage_account WHERE id = ?", UUID.class, accountId
         )).isEqualTo(userId);
+    }
+
+    @Test
+    void returnsCalculatedHoldingsThroughTheAuthenticatedHttpEndpoint() throws Exception {
+        HttpClient client = newClient();
+        createGuest(client);
+        UUID accountId = createAccount(client);
+        String csv = """
+                Action,Time (UTC),ISIN,Ticker,Name,ID,No. of shares,Total,Currency (Total)
+                Limit buy,2026-10-01 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,BUY-1,5,500,EUR
+                Limit sell,2026-10-02 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,SELL-1,2,220,EUR
+                """;
+        assertThat(uploadCsv(client, accountId, csv).statusCode()).isEqualTo(201);
+        String path = "/api/brokerage-accounts/" + accountId + "/holdings";
+        HttpResponse<String> response = request(client, "GET", path + "?status=ALL&search=nvda&page=0&size=1");
+        assertTotalElements(response, 1);
+        assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
+        assertThat(JsonPath.<String>read(response.body(), "$.holdings[0].instrumentKey")).isEqualTo("ISIN:US67066G1040");
+        assertThat(JsonPath.<Number>read(response.body(), "$.holdings[0].quantity").doubleValue()).isEqualTo(3);
+        assertThat(JsonPath.<String>read(response.body(), "$.holdings[0].status")).isEqualTo("OPEN");
+        assertTotalElements(request(client, "GET", path + "?status=CLOSED"), 0);
+        assertThat(request(client, "GET", path + "?search=" + "x".repeat(121)).statusCode()).isEqualTo(400);
     }
 
     private HttpClient newClient() {
@@ -224,11 +249,15 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
     }
 
     private HttpResponse<String> uploadCsv(HttpClient client, UUID accountId) throws Exception {
+        return uploadCsv(client, accountId, CSV);
+    }
+
+    private HttpResponse<String> uploadCsv(HttpClient client, UUID accountId, String csv) throws Exception {
         String boundary = "AlphaForgeSessionTestBoundary";
         String multipart = "--" + boundary + "\r\n"
                 + "Content-Disposition: form-data; name=\"file\"; filename=\"session-test.csv\"\r\n"
                 + "Content-Type: text/csv\r\n\r\n"
-                + CSV.replace("\n", "\r\n") + "\r\n--" + boundary + "--\r\n";
+                + csv.replace("\n", "\r\n") + "\r\n--" + boundary + "--\r\n";
         HttpRequest request = withCsrf(client, requestBuilder("/api/brokerage-accounts/" + accountId + "/account-activities/imports"), port)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofString(multipart))

@@ -3,10 +3,10 @@ package com.likehang.alphaforge.service;
 import com.likehang.alphaforge.exception.BadRequestException;
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
+import com.likehang.alphaforge.service.holding.TradeActivitySupport;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -48,12 +48,13 @@ public class AccountActivityHoldingValidationService {
 
         Map<String, BigDecimal> holdings = new HashMap<>();
         for (AccountActivity activity : activities) {
-            BigDecimal shareChange = resolveShareChange(activity);
+            BigDecimal shareChange = TradeActivitySupport.shareChange(
+                    activity.getAction(), activity.getNumberOfShares(), activity.getRowNumber());
             if (shareChange == null) {
                 continue;
             }
 
-            String instrumentKey = resolveInstrumentKey(activity);
+            String instrumentKey = TradeActivitySupport.instrumentKey(activity.getIsin(), activity.getTicker());
             if (instrumentKey == null) {
                 continue;
             }
@@ -73,45 +74,6 @@ public class AccountActivityHoldingValidationService {
                 .thenComparingLong(activity -> activity.getImportBatch() == null ? 0
                         : activity.getImportBatch().getImportSequence())
                 .thenComparingInt(AccountActivity::getRowNumber);
-    }
-
-    private BigDecimal resolveShareChange(AccountActivity activity) {
-        String action = normalizeLower(activity.getAction());
-        if (action == null) {
-            return null;
-        }
-
-        boolean isBuy = action.contains("buy");
-        boolean isSell = action.contains("sell");
-        if (!isBuy && !isSell) {
-            return null;
-        }
-
-        BigDecimal shares = activity.getNumberOfShares();
-        if (shares == null) {
-            throw new BadRequestException("Trade row is missing number of shares: row " + activity.getRowNumber());
-        }
-
-        BigDecimal absoluteShares = shares.setScale(10, RoundingMode.HALF_UP).abs();
-        if (absoluteShares.compareTo(ZERO) == 0) {
-            return null;
-        }
-
-        return isSell ? absoluteShares.negate() : absoluteShares;
-    }
-
-    private String resolveInstrumentKey(AccountActivity activity) {
-        String isin = normalizeUpper(activity.getIsin());
-        if (isin != null) {
-            return "ISIN:" + isin;
-        }
-
-        String ticker = normalizeUpper(activity.getTicker());
-        if (ticker != null) {
-            return "TICKER:" + ticker;
-        }
-
-        return null;
     }
 
     private String buildNegativeHoldingMessage(AccountActivity activity, BigDecimal updatedShares) {
@@ -142,14 +104,6 @@ public class AccountActivityHoldingValidationService {
             return name;
         }
         return "unknown instrument";
-    }
-
-    private String normalizeLower(String value) {
-        String trimmed = trimToNull(value);
-        if (trimmed == null) {
-            return null;
-        }
-        return trimmed.toLowerCase(Locale.ROOT);
     }
 
     private String normalizeUpper(String value) {

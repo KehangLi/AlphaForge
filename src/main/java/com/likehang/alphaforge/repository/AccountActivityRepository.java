@@ -1,10 +1,13 @@
 package com.likehang.alphaforge.repository;
 
 import com.likehang.alphaforge.model.entity.AccountActivity;
+import com.likehang.alphaforge.repository.projection.HoldingActivity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -18,6 +21,19 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
     List<AccountActivity> findByImportBatch_IdOrderByRowNumberAsc(UUID importBatchId);
 
     List<AccountActivity> findByBrokerageAccount_Id(UUID brokerageAccountId);
+
+    @Query("""
+            select new com.likehang.alphaforge.repository.projection.HoldingActivity(
+                a.action, a.isin, a.ticker, a.instrumentName, a.numberOfShares, a.occurredAt, a.rowNumber
+            )
+            from AccountActivity a
+            where a.brokerageAccount.user.id = :userId and a.brokerageAccount.id = :brokerageAccountId
+            order by a.occurredAt asc, a.importBatch.importSequence asc, a.rowNumber asc, a.id asc
+            """)
+    List<HoldingActivity> findHoldingActivities(
+            @Param("userId") UUID userId,
+            @Param("brokerageAccountId") UUID brokerageAccountId
+    );
 
     Page<AccountActivity> findByImportBatch_IdOrderByRowNumberAsc(UUID importBatchId, Pageable pageable);
 
