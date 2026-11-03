@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 
 import { getCachedUserId, isCurrentUser } from "@/features/auth/session-cache";
+import { holdingsQueryKeys } from "@/features/holdings/queries";
 
 import {
   createBrokerageAccount,
@@ -100,6 +101,9 @@ export function useDeleteBrokerageAccountMutation() {
       queryClient.removeQueries({
         queryKey: importBatchQueryKeys.byAccount(brokerageAccountId),
       });
+      queryClient.removeQueries({
+        queryKey: holdingsQueryKeys.byAccount(brokerageAccountId),
+      });
 
       await queryClient.invalidateQueries({
         queryKey: brokerageAccountQueryKeys.all,
@@ -168,6 +172,9 @@ export function useImportAccountActivitiesMutation() {
         queryClient.invalidateQueries({
           queryKey: importBatchQueryKeys.byAccount(result.brokerageAccountId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: holdingsQueryKeys.byAccount(result.brokerageAccountId),
+        }),
       ]);
     },
   });
@@ -195,6 +202,9 @@ export function useDeleteImportBatchMutation() {
           queryKey: accountActivityQueryKeys.byAccount(
             variables.brokerageAccountId,
           ),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: holdingsQueryKeys.byAccount(variables.brokerageAccountId),
         }),
       ]);
     },
