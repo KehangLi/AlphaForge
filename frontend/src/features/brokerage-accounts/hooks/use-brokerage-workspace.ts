@@ -6,6 +6,7 @@ import {
   useDeleteImportBatchMutation,
   useImportBatchesQuery,
 } from "../queries";
+import { useHoldingsQuery } from "@/features/holdings/queries";
 import type { BrokerageAccountListResponse } from "../types";
 
 const ACTIVITY_PAGE_SIZE = 10;
@@ -13,6 +14,10 @@ const IMPORT_BATCH_PAGE_SIZE = 20;
 
 export function useBrokerageWorkspace() {
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [activeView, setActiveView] = useState<"activities" | "holdings">(
+    "activities",
+  );
+  const [holdingsPage, setHoldingsPage] = useState(0);
   const [activityPage, setActivityPage] = useState(0);
   const [isImportSidebarOpen, setIsImportSidebarOpen] = useState(true);
   const [isAccountManagementOpen, setIsAccountManagementOpen] = useState(false);
@@ -59,12 +64,18 @@ export function useBrokerageWorkspace() {
     page: 0,
     size: IMPORT_BATCH_PAGE_SIZE,
   });
+  const holdingsQuery = useHoldingsQuery({
+    brokerageAccountId: resolvedSelectedAccountId,
+    page: holdingsPage,
+    enabled: activeView === "holdings",
+  });
   const deletingImportBatchId = deleteImportBatchMutation.isPending
     ? deleteImportBatchMutation.variables?.importBatchId
     : undefined;
 
   function resetAccountActions() {
     setActivityPage(0);
+    setHoldingsPage(0);
     deleteImportBatchMutation.reset();
   }
 
@@ -112,6 +123,8 @@ export function useBrokerageWorkspace() {
 
     selectedAccount,
     selectedAccountId: resolvedSelectedAccountId,
+    activeView,
+    setActiveView,
     onAccountChange: handleAccountChange,
     onAccountCreated: handleAccountCreated,
     onAccountDeleted: handleAccountDeleted,
@@ -134,6 +147,15 @@ export function useBrokerageWorkspace() {
     deletingImportBatchId,
     deleteImportBatchError: deleteImportBatchMutation.error,
     onDeleteImportBatch: handleDeleteImportBatch,
+
+    holdingsPage: holdingsQuery.data,
+    holdingsError: holdingsQuery.error,
+    isHoldingsError: holdingsQuery.isError,
+    isHoldingsFetching: holdingsQuery.isFetching,
+    isHoldingsLoading: holdingsQuery.isLoading,
+    refetchHoldings: holdingsQuery.refetch,
+    holdingsPageNumber: holdingsPage,
+    setHoldingsPage,
 
     isImportSidebarOpen,
     setIsImportSidebarOpen,

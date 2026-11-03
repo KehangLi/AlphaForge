@@ -7,11 +7,13 @@ import {
   GuestActivityEmptyState,
 } from "@/features/guest-session/components/guest-onboarding-states";
 import { SessionMenu } from "@/features/auth/components/session-menu";
+import { HoldingsTable } from "@/features/holdings/components/holdings-table";
 import { AccountManagementDialog } from "./account-management-dialog";
 import { AccountActivitiesTable } from "./account-activities-table";
 import { AccountToolbar } from "./account-toolbar";
 import { CsvImportAction } from "./csv-import-action";
 import { ImportBatchHistory } from "./import-batch-history";
+import { WorkspaceViewTabs } from "./workspace-view-tabs";
 
 export function BrokerageDashboard() {
   const workspace = useBrokerageWorkspace();
@@ -68,6 +70,13 @@ export function BrokerageDashboard() {
           selectedAccountId={workspace.selectedAccountId}
         />
 
+        {!isAccountListEmpty ? (
+          <WorkspaceViewTabs
+            activeView={workspace.activeView}
+            onChange={workspace.setActiveView}
+          />
+        ) : null}
+
         {isAccountListEmpty ? (
           <section className="py-6">
             <GuestAccountEmptyState
@@ -83,7 +92,16 @@ export function BrokerageDashboard() {
             }
           >
             <div className="min-w-0">
-              {isActivityEmpty ? (
+              {workspace.activeView === "holdings" ? (
+                <HoldingsTable
+                  error={workspace.holdingsError}
+                  holdings={workspace.holdingsPage?.holdings ?? []}
+                  isError={workspace.isHoldingsError}
+                  isFetching={workspace.isHoldingsFetching}
+                  isLoading={workspace.isHoldingsLoading}
+                  onRefresh={() => void workspace.refetchHoldings()}
+                />
+              ) : isActivityEmpty ? (
                 <GuestActivityEmptyState
                   importAction={
                     <CsvImportAction
