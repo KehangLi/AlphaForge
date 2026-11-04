@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,6 +16,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AccountActivityRepository extends JpaRepository<AccountActivity, UUID>, JpaSpecificationExecutor<AccountActivity> {
+
+    String INSTRUMENT_SCOPE = """
+            where a.brokerageAccount.user.id = :userId and a.brokerageAccount.id = :brokerageAccountId
+              and (case when nullif(trim(a.isin), '') is not null
+                   then concat('ISIN:', upper(trim(a.isin)))
+                   else concat('TICKER:', upper(trim(a.ticker))) end) = :instrumentKey
+            """;
 
     long countByBrokerageAccount_User_Id(UUID userId);
 
@@ -33,6 +41,31 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
     List<HoldingActivity> findHoldingActivities(
             @Param("userId") UUID userId,
             @Param("brokerageAccountId") UUID brokerageAccountId
+    );
+
+    @Query("""
+            select new com.likehang.alphaforge.repository.projection.HoldingActivity(
+                a.action, a.isin, a.ticker, a.instrumentName, a.numberOfShares, a.occurredAt, a.rowNumber
+            )
+            from AccountActivity a
+            """ + INSTRUMENT_SCOPE + """
+            order by a.occurredAt asc, a.importBatch.importSequence asc, a.rowNumber asc, a.id asc
+            """)
+    List<HoldingActivity> findInstrumentHistory(
+            @Param("userId") UUID userId,
+            @Param("brokerageAccountId") UUID brokerageAccountId,
+            @Param("instrumentKey") String instrumentKey
+    );
+
+    @EntityGraph(attributePaths = {"brokerageAccount", "importBatch"})
+    @Query(value = "select a from AccountActivity a " + INSTRUMENT_SCOPE + """
+            order by a.occurredAt desc, a.importBatch.importSequence desc, a.rowNumber desc, a.id desc
+            """, countQuery = "select count(a) from AccountActivity a " + INSTRUMENT_SCOPE)
+    Page<AccountActivity> findInstrumentActivities(
+            @Param("userId") UUID userId,
+            @Param("brokerageAccountId") UUID brokerageAccountId,
+            @Param("instrumentKey") String instrumentKey,
+            Pageable pageable
     );
 
     Page<AccountActivity> findByImportBatch_IdOrderByRowNumberAsc(UUID importBatchId, Pageable pageable);

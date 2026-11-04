@@ -9,6 +9,7 @@ import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
+import com.likehang.alphaforge.service.mapper.AccountActivityResponseMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
@@ -44,7 +45,8 @@ class AccountActivityQueryServiceTest {
     void setUp() {
         service = new AccountActivityQueryService(
                 accountActivityRepository,
-                brokerageAccountRepository
+                brokerageAccountRepository,
+                new AccountActivityResponseMapper()
         );
     }
 

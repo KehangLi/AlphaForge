@@ -246,7 +246,7 @@ class BrokerageAccountActivityControllerTest {
         private Pageable requestedPageable;
 
         private FakeAccountActivityQueryService() {
-            super(null, null);
+            super(null, null, null);
         }
 
         @Override

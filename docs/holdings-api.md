@@ -61,6 +61,9 @@ is also empty, retaining the actual filtered total.
 - The query reads a compact projection of the entire account history in one SQL
   query, ordered by trade instant, import sequence, CSV row, then activity UUID.
   It does not load full entities or lazily fetch a batch for each row.
+- `HoldingCalculator` performs the aggregation and is shared with the
+  [instrument detail endpoint](instrument-api.md), so both views use the same
+  position calculation.
 - Buy/sell recognition, absolute share quantities at 10 decimal places, and
   instrument identity are shared with the import holding validator through
   `TradeActivitySupport`. As in the existing import validator, actions containing
