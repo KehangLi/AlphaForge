@@ -43,6 +43,24 @@ public final class TradeActivitySupport {
     public static String normalizeIdentifier(String value) {
         return value == null || value.isBlank() ? null : value.trim().toUpperCase(Locale.ROOT);
     }
+
+    public static String normalizeInstrumentKey(String value) {
+        if (value == null || !value.contains(":")) {
+            throw new BadRequestException("Instrument key must use ISIN:<value> or TICKER:<value>");
+        }
+        int separator = value.indexOf(':');
+        String type = normalizeIdentifier(value.substring(0, separator));
+        String identifier = normalizeIdentifier(value.substring(separator + 1));
+        int maxLength = switch (type == null ? "" : type) {
+            case "ISIN" -> 12;
+            case "TICKER" -> 40;
+            default -> throw new BadRequestException("Instrument key must use ISIN:<value> or TICKER:<value>");
+        };
+        if (identifier == null || identifier.length() > maxLength) {
+            throw new BadRequestException("Instrument identifier must contain 1-" + maxLength + " characters");
+        }
+        return type + ":" + identifier;
+    }
 }
 
 /*
