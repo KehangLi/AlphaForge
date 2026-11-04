@@ -10,6 +10,7 @@ import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
 import com.likehang.alphaforge.repository.projection.HoldingActivity;
 import com.likehang.alphaforge.rest.dto.response.HoldingPageResponse;
+import com.likehang.alphaforge.service.holding.HoldingCalculator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
@@ -33,7 +34,7 @@ class HoldingQueryServiceTest {
     private final UUID accountId = UUID.randomUUID();
     private final BrokerageAccountRepository accounts = mock(BrokerageAccountRepository.class);
     private final AccountActivityRepository activities = mock(AccountActivityRepository.class);
-    private final HoldingQueryService service = new HoldingQueryService(accounts, activities);
+    private final HoldingQueryService service = new HoldingQueryService(accounts, activities, new HoldingCalculator());
 
     @BeforeEach
     void setUp() {

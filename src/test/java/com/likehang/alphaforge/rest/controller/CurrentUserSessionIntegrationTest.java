@@ -73,6 +73,7 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertUnauthorized(request(client, "DELETE", accountPath));
         assertUnauthorized(request(client, "GET", accountPath + "/account-activities"));
         assertUnauthorized(request(client, "GET", accountPath + "/holdings"));
+        assertUnauthorized(request(client, "GET", accountPath + "/instruments/ISIN:US67066G1040"));
         assertUnauthorized(uploadCsv(client, accountId));
         assertUnauthorized(request(client, "GET", accountPath + "/import-batches"));
         assertUnauthorized(request(client, "DELETE", accountPath + "/import-batches/" + UUID.randomUUID()));
@@ -148,6 +149,7 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertListedAccount(secondClient, secondAccountId);
         assertThat(request(secondClient, "GET", activitiesPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "GET", firstAccountPath + "/holdings").statusCode()).isEqualTo(404);
+        assertThat(request(secondClient, "GET", firstAccountPath + "/instruments/ISIN:US67066G1040").statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "GET", batchesPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "DELETE", firstAccountPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "DELETE", batchesPath + "/" + batchId).statusCode()).isEqualTo(404);
@@ -201,6 +203,33 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(JsonPath.<String>read(response.body(), "$.holdings[0].status")).isEqualTo("OPEN");
         assertTotalElements(request(client, "GET", path + "?status=CLOSED"), 0);
         assertThat(request(client, "GET", path + "?search=" + "x".repeat(121)).statusCode()).isEqualTo(400);
+    }
+
+    @Test
+    void returnsInstrumentSummaryAndPagedHistoryUsingTheAuthenticatedSession() throws Exception {
+        HttpClient client = newClient();
+        createGuest(client);
+        UUID accountId = createAccount(client);
+        String csv = """
+                Action,Time (UTC),ISIN,Ticker,Name,ID,No. of shares,Total,Currency (Total)
+                Limit buy,2026-10-01 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,BUY-1,5,500,EUR
+                Limit sell,2026-10-02 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,SELL-1,2,220,EUR
+                Dividend (Dividend),2026-10-03 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,,5,1,EUR
+                """;
+        assertThat(uploadCsv(client, accountId, csv).statusCode()).isEqualTo(201);
+        String path = "/api/brokerage-accounts/" + accountId + "/instruments/";
+        HttpResponse<String> first = request(client, "GET", path + "isin%3Aus67066g1040?page=0&size=1");
+        assertTotalElements(first, 3);
+        assertThat(first.headers().firstValue("Cache-Control")).contains("no-store");
+        assertThat(JsonPath.<String>read(first.body(), "$.instrumentKey")).isEqualTo("ISIN:US67066G1040");
+        assertThat(JsonPath.<Number>read(first.body(), "$.holding.quantity").doubleValue()).isEqualTo(3);
+        assertThat(JsonPath.<String>read(first.body(), "$.activities[0].action")).isEqualTo("Dividend (Dividend)");
+        HttpResponse<String> last = request(client, "GET", path + "ISIN:US67066G1040?page=2&size=1");
+        assertThat(JsonPath.<Number>read(last.body(), "$.holding.quantity").doubleValue()).isEqualTo(3);
+        assertThat(JsonPath.<String>read(last.body(), "$.activities[0].externalTransactionId")).isEqualTo("BUY-1");
+        assertThat(request(client, "GET", path + "ISIN:US0378331005").statusCode()).isEqualTo(404);
+        assertThat(request(client, "GET", path + "NAME:NVDA").statusCode()).isEqualTo(400);
+        assertThat(request(client, "GET", path + "TICKER:" + "A".repeat(41)).statusCode()).isEqualTo(400);
     }
 
     private HttpClient newClient() {
