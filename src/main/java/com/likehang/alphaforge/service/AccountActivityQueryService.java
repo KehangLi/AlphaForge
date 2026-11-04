@@ -4,9 +4,9 @@ import com.likehang.alphaforge.exception.BadRequestException;
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import com.likehang.alphaforge.rest.dto.response.AccountActivityPageResponse;
 import com.likehang.alphaforge.rest.dto.response.AccountActivityResponse;
-import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
+import com.likehang.alphaforge.service.mapper.AccountActivityResponseMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -23,13 +23,16 @@ public class AccountActivityQueryService {
 
     private final AccountActivityRepository accountActivityRepository;
     private final BrokerageAccountRepository brokerageAccountRepository;
+    private final AccountActivityResponseMapper responseMapper;
 
     public AccountActivityQueryService(
             AccountActivityRepository accountActivityRepository,
-            BrokerageAccountRepository brokerageAccountRepository
+            BrokerageAccountRepository brokerageAccountRepository,
+            AccountActivityResponseMapper responseMapper
     ) {
         this.accountActivityRepository = accountActivityRepository;
         this.brokerageAccountRepository = brokerageAccountRepository;
+        this.responseMapper = responseMapper;
     }
 
     @Transactional(readOnly = true)
@@ -57,7 +60,7 @@ public class AccountActivityQueryService {
                         brokerageAccountId,
                         pageable
                 )
-                .map(this::toResponse);
+                .map(responseMapper::toResponse); //.map(activity -> responseMapper.toResponse(activity))
 
         log.info(
                 "Loaded account activities: brokerageAccount={}, page={}, size={}, totalElements={}",
@@ -79,33 +82,4 @@ public class AccountActivityQueryService {
         );
     }
 
-    private AccountActivityResponse toResponse(AccountActivity accountActivity) {
-        return new AccountActivityResponse(
-                accountActivity.getId(),
-                accountActivity.getBrokerageAccount().getId(),
-                accountActivity.getImportBatch().getId(),
-                accountActivity.getRowNumber(),
-                accountActivity.getExternalTransactionId(),
-                accountActivity.getAction(),
-                accountActivity.getOccurredAt(),
-                accountActivity.getIsin(),
-                accountActivity.getTicker(),
-                accountActivity.getInstrumentName(),
-                accountActivity.getNotes(),
-                accountActivity.getNumberOfShares(),
-                accountActivity.getPricePerShare(),
-                accountActivity.getPricePerShareCurrency(),
-                accountActivity.getExchangeRate(),
-                accountActivity.getResultAmount(),
-                accountActivity.getResultCurrency(),
-                accountActivity.getTotalAmount(),
-                accountActivity.getTotalCurrency(),
-                accountActivity.getWithholdingTax(),
-                accountActivity.getWithholdingTaxCurrency(),
-                accountActivity.getCurrencyConversionFee(),
-                accountActivity.getCurrencyConversionFeeCurrency(),
-                accountActivity.getMerchantName(),
-                accountActivity.getMerchantCategory()
-        );
-    }
 }
