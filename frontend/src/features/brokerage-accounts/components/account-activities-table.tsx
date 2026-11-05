@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 import {
   formatActivitySummary,
@@ -14,6 +15,7 @@ import type { AccountActivityResponse } from "../types";
 
 type AccountActivitiesTableProps = {
   activities: AccountActivityResponse[];
+  brokerageAccountId?: string;
   emptyMessage?: string;
   error?: unknown;
   isError?: boolean;
@@ -32,6 +34,7 @@ type AccountActivitiesTableProps = {
 
 export function AccountActivitiesTable({
   activities,
+  brokerageAccountId,
   emptyMessage = "No account activity found.",
   error,
   isError = false,
@@ -135,7 +138,16 @@ export function AccountActivitiesTable({
                   </span>
                 </td>
                 <td className="px-5 py-4">
-                  <p className="font-medium">{formatInstrumentName(activity)}</p>
+                  {brokerageAccountId && getInstrumentKey(activity) ? (
+                    <Link
+                      className="font-medium text-[#173f35] underline decoration-[#b9c9be] underline-offset-4 hover:decoration-[#173f35]"
+                      href={`/app/accounts/${encodeURIComponent(brokerageAccountId)}/instruments/${encodeURIComponent(getInstrumentKey(activity)!)}`}
+                    >
+                      {formatInstrumentName(activity)}
+                    </Link>
+                  ) : (
+                    <p className="font-medium">{formatInstrumentName(activity)}</p>
+                  )}
                   <p className="mt-1 text-xs text-[#65746a]">
                     {formatInstrumentCode(activity)}
                   </p>
@@ -183,4 +195,10 @@ export function AccountActivitiesTable({
       </div>
     </section>
   );
+}
+
+function getInstrumentKey(activity: AccountActivityResponse) {
+  if (activity.isin) return `ISIN:${activity.isin}`;
+  if (activity.ticker) return `TICKER:${activity.ticker}`;
+  return null;
 }
