@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 import type { HoldingResponse } from "../types";
 
 type HoldingsTableProps = {
   holdings: HoldingResponse[];
+  brokerageAccountId?: string;
   error?: unknown;
   isError?: boolean;
   isFetching?: boolean;
@@ -13,6 +15,7 @@ type HoldingsTableProps = {
 
 export function HoldingsTable({
   holdings,
+  brokerageAccountId,
   error,
   isError = false,
   isFetching = false,
@@ -84,15 +87,31 @@ export function HoldingsTable({
             {holdings.map((holding) => (
               <tr className="hover:bg-[#f8faf8]" key={holdingKey(holding)}>
                 <td className="px-5 py-4">
-                  <p className="font-medium">
-                    {holding.instrumentName ?? "Unknown instrument"}
-                  </p>
+                  {brokerageAccountId ? (
+                    <Link
+                      className="font-medium text-[#173f35] underline decoration-[#b9c9be] underline-offset-4 hover:decoration-[#173f35]"
+                      href={`/app/accounts/${encodeURIComponent(brokerageAccountId)}/instruments/${encodeURIComponent(holding.instrumentKey)}`}
+                    >
+                      {holding.instrumentName ?? "Unknown instrument"}
+                    </Link>
+                  ) : (
+                    <p className="font-medium">
+                      {holding.instrumentName ?? "Unknown instrument"}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-[#65746a]">
                     {holding.isin ?? "ISIN unavailable"}
                   </p>
                 </td>
                 <td className="px-5 py-4 font-medium text-[#4e5d53]">
-                  {holding.ticker ?? "-"}
+                  {brokerageAccountId ? (
+                    <Link
+                      className="text-[#173f35] hover:underline"
+                      href={`/app/accounts/${encodeURIComponent(brokerageAccountId)}/instruments/${encodeURIComponent(holding.instrumentKey)}`}
+                    >
+                      {holding.ticker ?? "-"}
+                    </Link>
+                  ) : holding.ticker ?? "-"}
                 </td>
                 <td className="px-5 py-4 text-right text-[#4e5d53]">
                   {formatNumber(holding.quantity)}

@@ -94,6 +94,7 @@ export function BrokerageDashboard() {
             <div className="min-w-0">
               {workspace.activeView === "holdings" ? (
                 <HoldingsTable
+                  brokerageAccountId={workspace.selectedAccountId}
                   error={workspace.holdingsError}
                   holdings={workspace.holdingsPage?.holdings ?? []}
                   isError={workspace.isHoldingsError}
@@ -113,6 +114,7 @@ export function BrokerageDashboard() {
               ) : (
                 <AccountActivitiesTable
                   activities={workspace.accountActivityPage?.activities ?? []}
+                  brokerageAccountId={workspace.selectedAccountId}
                   emptyMessage="No activity yet. Import a CSV to populate this account."
                   error={workspace.accountActivitiesError}
                   isError={workspace.isAccountActivitiesError}
