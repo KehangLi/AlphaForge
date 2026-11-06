@@ -16,7 +16,8 @@ public class AccountActivityResponseMapper {
                 activity.getExchangeRate(), activity.getResultAmount(), activity.getResultCurrency(),
                 activity.getTotalAmount(), activity.getTotalCurrency(), activity.getWithholdingTax(), activity.getWithholdingTaxCurrency(),
                 activity.getCurrencyConversionFee(), activity.getCurrencyConversionFeeCurrency(),
-                activity.getMerchantName(), activity.getMerchantCategory()
+                activity.getMerchantName(), activity.getMerchantCategory(),
+                activity.getImportBatch().getOriginalFilename(), activity.getJournalNote(), activity.getJournalNoteUpdatedAt()
         );
     }
 }

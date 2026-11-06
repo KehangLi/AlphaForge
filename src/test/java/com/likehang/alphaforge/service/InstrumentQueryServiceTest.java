@@ -8,9 +8,10 @@ import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
-import com.likehang.alphaforge.repository.projection.HoldingActivity;
+import com.likehang.alphaforge.repository.projection.InstrumentActivity;
 import com.likehang.alphaforge.service.holding.HoldingCalculator;
 import com.likehang.alphaforge.service.mapper.AccountActivityResponseMapper;
+import com.likehang.alphaforge.service.trading.RealizedTradingCalculator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -42,7 +43,7 @@ class InstrumentQueryServiceTest {
     private final BrokerageAccountRepository accounts = mock(BrokerageAccountRepository.class);
     private final AccountActivityRepository activities = mock(AccountActivityRepository.class);
     private final InstrumentQueryService service = new InstrumentQueryService(
-            accounts, activities, new HoldingCalculator(), new AccountActivityResponseMapper());
+            accounts, activities, new HoldingCalculator(), new AccountActivityResponseMapper(), new RealizedTradingCalculator());
 
     @BeforeEach
     void setUp() {
@@ -64,6 +65,9 @@ class InstrumentQueryServiceTest {
         assertThat(result.activities()).isEmpty();
         assertThat(result.totalElements()).isEqualTo(3);
         assertThat(result.page()).isEqualTo(5);
+        assertThat(result.realizedSummary().sellRecordCount()).isEqualTo(1);
+        assertThat(result.realizedSummary().currencies()).singleElement()
+                .satisfies(currency -> assertThat(currency.totalResult()).isEqualByComparingTo("12.50"));
     }
 
     @Test
@@ -92,6 +96,7 @@ class InstrumentQueryServiceTest {
             assertThat(row.brokerageAccountId()).isEqualTo(accountId);
             assertThat(row.resultAmount()).isEqualByComparingTo("12.50");
             assertThat(row.notes()).isEqualTo("Original export note");
+            assertThat(row.importFilename()).isEqualTo("test.csv");
         });
     }
 
@@ -144,8 +149,9 @@ class InstrumentQueryServiceTest {
                 .isInstanceOf(BadRequestException.class);
     }
 
-    private HoldingActivity history(String action, String shares, int day) {
-        return new HoldingActivity(action, "US67066G1040", "NVDA", "NVIDIA", new BigDecimal(shares),
-                OffsetDateTime.parse("2026-10-%02dT10:00:00Z".formatted(day)), day + 1);
+    private InstrumentActivity history(String action, String shares, int day) {
+        return new InstrumentActivity(action, "US67066G1040", "NVDA", "NVIDIA", new BigDecimal(shares),
+                OffsetDateTime.parse("2026-10-%02dT10:00:00Z".formatted(day)), day + 1,
+                action.contains("sell") ? new BigDecimal("12.50") : null, action.contains("sell") ? "EUR" : null);
     }
 }

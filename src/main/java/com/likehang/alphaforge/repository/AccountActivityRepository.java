@@ -2,6 +2,7 @@ package com.likehang.alphaforge.repository;
 
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.repository.projection.HoldingActivity;
+import com.likehang.alphaforge.repository.projection.InstrumentActivity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -44,14 +45,15 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
     );
 
     @Query("""
-            select new com.likehang.alphaforge.repository.projection.HoldingActivity(
-                a.action, a.isin, a.ticker, a.instrumentName, a.numberOfShares, a.occurredAt, a.rowNumber
+            select new com.likehang.alphaforge.repository.projection.InstrumentActivity(
+                a.action, a.isin, a.ticker, a.instrumentName, a.numberOfShares, a.occurredAt, a.rowNumber,
+                a.resultAmount, a.resultCurrency
             )
             from AccountActivity a
             """ + INSTRUMENT_SCOPE + """
             order by a.occurredAt asc, a.importBatch.importSequence asc, a.rowNumber asc, a.id asc
             """)
-    List<HoldingActivity> findInstrumentHistory(
+    List<InstrumentActivity> findInstrumentHistory(
             @Param("userId") UUID userId,
             @Param("brokerageAccountId") UUID brokerageAccountId,
             @Param("instrumentKey") String instrumentKey
@@ -76,6 +78,7 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
             Pageable pageable
     );
 
+    @EntityGraph(attributePaths = {"brokerageAccount", "importBatch"})
     Page<AccountActivity> findByBrokerageAccount_User_IdAndBrokerageAccount_IdOrderByOccurredAtDesc(
             UUID userId,
             UUID brokerageAccountId,
@@ -114,6 +117,10 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
     );
 
     Optional<AccountActivity> findByImportBatch_IdAndRowNumber(UUID importBatchId, int rowNumber);
+
+    Optional<AccountActivity> findByIdAndBrokerageAccount_User_IdAndBrokerageAccount_Id(
+            UUID id, UUID userId, UUID brokerageAccountId
+    );
 
     Optional<AccountActivity> findByBrokerageAccount_IdAndExternalTransactionId(
             UUID brokerageAccountId,

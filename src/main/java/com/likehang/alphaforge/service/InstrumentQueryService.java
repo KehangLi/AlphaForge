@@ -4,13 +4,15 @@ import com.likehang.alphaforge.exception.BadRequestException;
 import com.likehang.alphaforge.exception.ResourceNotFoundException;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
-import com.likehang.alphaforge.repository.projection.HoldingActivity;
+import com.likehang.alphaforge.repository.projection.InstrumentActivity;
 import com.likehang.alphaforge.rest.dto.response.AccountActivityResponse;
 import com.likehang.alphaforge.rest.dto.response.HoldingResponse;
 import com.likehang.alphaforge.rest.dto.response.InstrumentDetailResponse;
+import com.likehang.alphaforge.rest.dto.response.RealizedTradingSummaryResponse;
 import com.likehang.alphaforge.service.holding.HoldingCalculator;
 import com.likehang.alphaforge.service.holding.TradeActivitySupport;
 import com.likehang.alphaforge.service.mapper.AccountActivityResponseMapper;
+import com.likehang.alphaforge.service.trading.RealizedTradingCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -31,13 +33,16 @@ public class InstrumentQueryService {
     private final AccountActivityRepository activities;
     private final HoldingCalculator holdingCalculator;
     private final AccountActivityResponseMapper responseMapper;
+    private final RealizedTradingCalculator realizedTradingCalculator;
 
     public InstrumentQueryService(BrokerageAccountRepository accounts, AccountActivityRepository activities,
-                                  HoldingCalculator holdingCalculator, AccountActivityResponseMapper responseMapper) {
+                                  HoldingCalculator holdingCalculator, AccountActivityResponseMapper responseMapper,
+                                  RealizedTradingCalculator realizedTradingCalculator) {
         this.accounts = accounts;
         this.activities = activities;
         this.holdingCalculator = holdingCalculator;
         this.responseMapper = responseMapper;
+        this.realizedTradingCalculator = realizedTradingCalculator;
     }
 
     // Summary and page must use the same snapshot if an import/deletion commits between queries.
@@ -58,16 +63,18 @@ public class InstrumentQueryService {
             throw new BadRequestException("A paged request is required");
         }
 
-        List<HoldingActivity> history = activities.findInstrumentHistory(userId, brokerageAccountId, key);
+        List<InstrumentActivity> history = activities.findInstrumentHistory(userId, brokerageAccountId, key);
         if (history.isEmpty()) {
             throw new ResourceNotFoundException("Instrument not found in brokerage account: " + key);
         }
-        HoldingResponse holding = holdingCalculator.calculate(history).stream().findFirst().orElse(null);
+        HoldingResponse holding = holdingCalculator.calculate(history.stream().map(InstrumentActivity::toHoldingActivity).toList())
+                .stream().findFirst().orElse(null);
+        RealizedTradingSummaryResponse realizedSummary = realizedTradingCalculator.calculate(history);
 
         String isin = null;
         String ticker = null;
         String name = null;
-        for (HoldingActivity activity : history) {
+        for (InstrumentActivity activity : history) {
             String nextIsin = TradeActivitySupport.normalizeIdentifier(activity.isin());
             String nextTicker = TradeActivitySupport.normalizeIdentifier(activity.ticker());
             if (nextIsin != null) {
@@ -85,7 +92,7 @@ public class InstrumentQueryService {
                 .map(responseMapper::toResponse);
         log.info("Loaded instrument detail: brokerageAccount={}, instrument={}, page={}, size={}, totalElements={}",
                 brokerageAccountId, key, page.getNumber(), page.getSize(), page.getTotalElements());
-        return new InstrumentDetailResponse(brokerageAccountId, key, isin, ticker, name, holding,
+        return new InstrumentDetailResponse(brokerageAccountId, key, isin, ticker, name, holding, realizedSummary,
                 page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(),
                 page.isFirst(), page.isLast());
     }

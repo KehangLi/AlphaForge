@@ -1,6 +1,7 @@
 package com.likehang.alphaforge.rest.dto.response;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -29,6 +30,9 @@ public record AccountActivityResponse(
         BigDecimal currencyConversionFee,
         String currencyConversionFeeCurrency,
         String merchantName,
-        String merchantCategory
+        String merchantCategory,
+        String importFilename,
+        String journalNote,
+        Instant journalNoteUpdatedAt
 ) {
 }
