@@ -10,6 +10,7 @@ public record InstrumentDetailResponse(
         String ticker,
         String instrumentName,
         HoldingResponse holding,
+        RealizedTradingSummaryResponse realizedSummary,
         List<AccountActivityResponse> activities,
         int page,
         int size,
