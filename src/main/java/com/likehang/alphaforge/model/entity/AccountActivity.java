@@ -68,6 +68,12 @@ public class AccountActivity {
     @Column(name = "notes", columnDefinition = "text")
     private String notes;
 
+    @Column(name = "journal_note", columnDefinition = "text")
+    private String journalNote;
+
+    @Column(name = "journal_note_updated_at")
+    private Instant journalNoteUpdatedAt;
+
     @Column(name = "number_of_shares", precision = 28, scale = 10)
     private BigDecimal numberOfShares;
 
@@ -326,6 +332,22 @@ public class AccountActivity {
 
     public String getRawRowHash() {
         return rawRowHash;
+    }
+
+    public String getJournalNote() {
+        return journalNote;
+    }
+
+    public void setJournalNote(String journalNote) {
+        this.journalNote = journalNote;
+    }
+
+    public Instant getJournalNoteUpdatedAt() {
+        return journalNoteUpdatedAt;
+    }
+
+    public void setJournalNoteUpdatedAt(Instant journalNoteUpdatedAt) {
+        this.journalNoteUpdatedAt = journalNoteUpdatedAt;
     }
 
     public void setRawRowHash(String rawRowHash) {
