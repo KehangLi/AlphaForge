@@ -46,6 +46,31 @@ class ImportIntegrityMigrationIntegrationTest extends AbstractPostgresIntegratio
         }
     }
 
+    @Test
+    void upgradesV5HistoryWithEmptyJournalFieldsAndPreservesImportedValues() {
+        String schema = schema();
+        try {
+            UUID account = createV4Account(schema);
+            UUID batch = UUID.randomUUID();
+            UUID activity = UUID.randomUUID();
+            batch(schema, account, batch, "a");
+            migrate(schema, "5");
+            jdbc.update("insert into " + schema + ".account_activity (id, import_batch_id, brokerage_account_id,"
+                    + " row_number, action, occurred_at, result_amount, result_currency, total_amount, total_currency, notes, raw_row_hash, created_at)"
+                    + " values (?, ?, ?, 2, 'Limit sell', now(), 12.5, 'EUR', 200, 'EUR', 'Original broker note', ?, now())",
+                    activity, batch, account, "b".repeat(64));
+            migrate(schema, "6");
+            var row = jdbc.queryForMap("select * from " + schema + ".account_activity where id = ?", activity);
+            assertThat(row.get("notes")).isEqualTo("Original broker note");
+            assertThat(row.get("raw_row_hash")).isEqualTo("b".repeat(64));
+            assertThat((java.math.BigDecimal) row.get("result_amount")).isEqualByComparingTo("12.5");
+            assertThat(row.get("journal_note")).isNull();
+            assertThat(row.get("journal_note_updated_at")).isNull();
+        } finally {
+            jdbc.execute("drop schema if exists " + schema + " cascade");
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"file", "transaction"})
     void refusesHistoricalDuplicatesAndLeavesV4RowsUntouched(String duplicate) {

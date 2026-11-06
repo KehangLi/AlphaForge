@@ -198,6 +198,9 @@ class BrokerageAccountActivityControllerTest {
                         null,
                         null,
                         null,
+                        null,
+                        "activity.csv",
+                        null,
                         null
                 )),
                 0,

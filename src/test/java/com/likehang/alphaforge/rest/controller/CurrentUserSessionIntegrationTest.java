@@ -77,6 +77,8 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertUnauthorized(uploadCsv(client, accountId));
         assertUnauthorized(request(client, "GET", accountPath + "/import-batches"));
         assertUnauthorized(request(client, "DELETE", accountPath + "/import-batches/" + UUID.randomUUID()));
+        assertUnauthorized(request(client, "PUT", accountPath + "/account-activities/" + UUID.randomUUID() + "/journal-note",
+                "{\"journalNote\":\"Review\"}"));
     }
 
     @Test
@@ -154,6 +156,10 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(request(secondClient, "DELETE", firstAccountPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "DELETE", batchesPath + "/" + batchId).statusCode()).isEqualTo(404);
         assertThat(uploadCsv(secondClient, firstAccountId).statusCode()).isEqualTo(400);
+        HttpResponse<String> firstActivities = request(firstClient, "GET", activitiesPath);
+        String activityId = JsonPath.read(firstActivities.body(), "$.activities[0].id");
+        assertThat(request(secondClient, "PUT", activitiesPath + "/" + activityId + "/journal-note",
+                "{\"journalNote\":\"Unauthorized edit\"}").statusCode()).isEqualTo(404);
 
         assertTotalElements(request(firstClient, "GET", activitiesPath), 1);
         assertTotalElements(request(firstClient, "GET", firstAccountPath + "/holdings"), 0);
@@ -211,10 +217,10 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         createGuest(client);
         UUID accountId = createAccount(client);
         String csv = """
-                Action,Time (UTC),ISIN,Ticker,Name,ID,No. of shares,Total,Currency (Total)
-                Limit buy,2026-10-01 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,BUY-1,5,500,EUR
-                Limit sell,2026-10-02 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,SELL-1,2,220,EUR
-                Dividend (Dividend),2026-10-03 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,,5,1,EUR
+                Action,Time (UTC),ISIN,Ticker,Name,ID,No. of shares,Total,Currency (Total),Result,Currency (Result)
+                Limit buy,2026-10-01 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,BUY-1,5,500,EUR,,
+                Limit sell,2026-10-02 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,SELL-1,2,220,EUR,12.50,EUR
+                Dividend (Dividend),2026-10-03 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,,5,1,EUR,,
                 """;
         assertThat(uploadCsv(client, accountId, csv).statusCode()).isEqualTo(201);
         String path = "/api/brokerage-accounts/" + accountId + "/instruments/";
@@ -224,9 +230,28 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(JsonPath.<String>read(first.body(), "$.instrumentKey")).isEqualTo("ISIN:US67066G1040");
         assertThat(JsonPath.<Number>read(first.body(), "$.holding.quantity").doubleValue()).isEqualTo(3);
         assertThat(JsonPath.<String>read(first.body(), "$.activities[0].action")).isEqualTo("Dividend (Dividend)");
+        assertThat(JsonPath.<Number>read(first.body(), "$.realizedSummary.currencies[0].totalResult").doubleValue()).isEqualTo(12.5);
+        assertThat(JsonPath.<String>read(first.body(), "$.activities[0].importFilename")).isEqualTo("session-test.csv");
         HttpResponse<String> last = request(client, "GET", path + "ISIN:US67066G1040?page=2&size=1");
         assertThat(JsonPath.<Number>read(last.body(), "$.holding.quantity").doubleValue()).isEqualTo(3);
         assertThat(JsonPath.<String>read(last.body(), "$.activities[0].externalTransactionId")).isEqualTo("BUY-1");
+        assertThat(JsonPath.<Number>read(last.body(), "$.realizedSummary.currencies[0].totalResult").doubleValue()).isEqualTo(12.5);
+
+        String activityId = JsonPath.read(last.body(), "$.activities[0].id");
+        String journalPath = "/api/brokerage-accounts/" + accountId + "/account-activities/" + activityId + "/journal-note";
+        HttpRequest missingCsrf = requestBuilder(journalPath).header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString("{\"journalNote\":\"Review\"}")).build();
+        assertThat(client.send(missingCsrf, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(403);
+        HttpResponse<String> saved = request(client, "PUT", journalPath, "{\"journalNote\":\"Entry reason\"}");
+        assertThat(saved.statusCode()).isEqualTo(200);
+        assertThat(saved.headers().firstValue("Cache-Control")).contains("no-store");
+        assertThat(JsonPath.<String>read(saved.body(), "$.journalNote")).isEqualTo("Entry reason");
+        HttpResponse<String> withNote = request(client, "GET", path + "ISIN:US67066G1040?page=2&size=1");
+        assertThat(JsonPath.<String>read(withNote.body(), "$.activities[0].journalNote")).isEqualTo("Entry reason");
+        assertThat(request(client, "PUT", journalPath, "{}").statusCode()).isEqualTo(400);
+        assertThat(request(client, "PUT", journalPath, "{\"journalNote\":\"\"}").statusCode()).isEqualTo(200);
+        HttpResponse<String> cleared = request(client, "GET", path + "ISIN:US67066G1040?page=2&size=1");
+        assertThat(JsonPath.<String>read(cleared.body(), "$.activities[0].journalNote")).isNull();
         assertThat(request(client, "GET", path + "ISIN:US0378331005").statusCode()).isEqualTo(404);
         assertThat(request(client, "GET", path + "NAME:NVDA").statusCode()).isEqualTo(400);
         assertThat(request(client, "GET", path + "TICKER:" + "A".repeat(41)).statusCode()).isEqualTo(400);

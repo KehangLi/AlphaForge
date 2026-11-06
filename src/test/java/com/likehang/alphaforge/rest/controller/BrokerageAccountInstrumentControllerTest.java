@@ -77,6 +77,6 @@ class BrokerageAccountInstrumentControllerTest {
 
     private InstrumentDetailResponse result() {
         return new InstrumentDetailResponse(accountId, "ISIN:US67066G1040", "US67066G1040", "NVDA", "NVIDIA",
-                null, List.of(), 0, 10, 1, 1, true, true);
+                null, null, List.of(), 0, 10, 1, 1, true, true);
     }
 }
