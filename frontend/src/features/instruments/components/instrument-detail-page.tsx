@@ -8,6 +8,7 @@ import { AccountActivitiesTable } from "@/features/brokerage-accounts/components
 import { formatShortAccountLabel } from "@/features/brokerage-accounts/formatters";
 import { useBrokerageAccountsQuery } from "@/features/brokerage-accounts/queries";
 import { useInstrumentDetailQuery } from "../queries";
+import { RealizedResultsSummary } from "./realized-results-summary";
 import type { HoldingResponse } from "@/features/holdings/types";
 
 type InstrumentDetailPageProps = {
@@ -76,6 +77,7 @@ export function InstrumentDetailPage({
         {detail && !detailQuery.isError ? (
           <>
             <HoldingSummary holding={detail.holding} />
+            <RealizedResultsSummary summary={detail.realizedSummary} />
             <section className="py-6">
               <AccountActivitiesTable
                 activities={detail.activities}
