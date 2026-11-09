@@ -3,8 +3,11 @@ package com.likehang.alphaforge.repository;
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.repository.projection.HoldingActivity;
 import com.likehang.alphaforge.repository.projection.InstrumentActivity;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -12,6 +15,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,6 +62,28 @@ public interface AccountActivityRepository extends JpaRepository<AccountActivity
             @Param("brokerageAccountId") UUID brokerageAccountId,
             @Param("instrumentKey") String instrumentKey
     );
+
+    default List<InstrumentActivity> findRealizedTradingActivities(
+            UUID userId, UUID brokerageAccountId, OffsetDateTime fromInclusive, OffsetDateTime toExclusive
+    ) {
+        Specification<AccountActivity> specification = (root, query, builder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(builder.equal(root.get("brokerageAccount").get("user").get("id"), userId));
+            predicates.add(builder.equal(root.get("brokerageAccount").get("id"), brokerageAccountId));
+            predicates.add(builder.like(builder.upper(root.get("action")), "%SELL%"));
+            // Omit absent bounds instead of binding null timestamp parameters.
+            if (fromInclusive != null) {
+                predicates.add(builder.greaterThanOrEqualTo(root.<OffsetDateTime>get("occurredAt"), fromInclusive));
+            }
+            if (toExclusive != null) {
+                predicates.add(builder.lessThan(root.<OffsetDateTime>get("occurredAt"), toExclusive));
+            }
+            return builder.and(predicates.toArray(Predicate[]::new));
+        };
+        return findBy(specification, query -> query.as(InstrumentActivity.class)
+                .sortBy(Sort.by("occurredAt", "importBatch.importSequence", "rowNumber", "id"))
+                .all());
+    }
 
     @EntityGraph(attributePaths = {"brokerageAccount", "importBatch"})
     @Query(value = "select a from AccountActivity a " + INSTRUMENT_SCOPE + """
