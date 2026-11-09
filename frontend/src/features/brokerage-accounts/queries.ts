@@ -18,6 +18,7 @@ import {
   getBrokerageAccounts,
   getImportBatches,
   importAccountActivities,
+  saveJournalNote,
 } from "./api";
 import type { BrokerageAccountListResponse } from "./types";
 
@@ -207,6 +208,31 @@ export function useDeleteImportBatchMutation() {
           queryKey: holdingsQueryKeys.byAccount(variables.brokerageAccountId),
         }),
       ]);
+    },
+  });
+}
+
+type SaveJournalNoteParams = {
+  brokerageAccountId: string;
+  activityId: string;
+  journalNote: string;
+};
+
+export function useSaveJournalNoteMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ brokerageAccountId, activityId, journalNote }: SaveJournalNoteParams) =>
+      saveJournalNote(brokerageAccountId, activityId, journalNote),
+    onMutate: () => getCachedUserId(queryClient),
+    onSettled: async (_result, _error, variables, userId) => {
+      if (!isCurrentUser(queryClient, userId)) return;
+      await queryClient.invalidateQueries({
+        queryKey: accountActivityQueryKeys.byAccount(variables.brokerageAccountId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["instruments", variables.brokerageAccountId],
+      });
     },
   });
 }

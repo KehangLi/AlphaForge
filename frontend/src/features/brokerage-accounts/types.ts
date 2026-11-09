@@ -39,6 +39,15 @@ export type AccountActivityResponse = {
   currencyConversionFeeCurrency: string | null;
   merchantName: string | null;
   merchantCategory: string | null;
+  importFilename?: string | null;
+  journalNote?: string | null;
+  journalNoteUpdatedAt?: string | null;
+};
+
+export type JournalNoteResponse = {
+  activityId: string;
+  journalNote: string | null;
+  journalNoteUpdatedAt: string | null;
 };
 
 export type AccountActivityPageResponse = {

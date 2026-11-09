@@ -6,6 +6,7 @@ import type {
   BrokerageAccountCreateRequest,
   BrokerageAccountListResponse,
   ImportBatchPageResponse,
+  JournalNoteResponse,
 } from "./types";
 
 export function getBrokerageAccounts(signal?: AbortSignal): Promise<BrokerageAccountListResponse[]> {
@@ -109,5 +110,18 @@ export function deleteImportBatch(
 
   return apiRequest<void>(path, {
     method: "DELETE",
+  });
+}
+
+export function saveJournalNote(
+  brokerageAccountId: string,
+  activityId: string,
+  journalNote: string,
+): Promise<JournalNoteResponse> {
+  const path = `/api/brokerage-accounts/${encodeURIComponent(brokerageAccountId)}/account-activities/${encodeURIComponent(activityId)}/journal-note`;
+
+  return apiRequest<JournalNoteResponse>(path, {
+    method: "PUT",
+    body: JSON.stringify({ journalNote }),
   });
 }
