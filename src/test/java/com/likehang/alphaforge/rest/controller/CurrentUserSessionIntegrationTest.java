@@ -73,6 +73,7 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertUnauthorized(request(client, "DELETE", accountPath));
         assertUnauthorized(request(client, "GET", accountPath + "/account-activities"));
         assertUnauthorized(request(client, "GET", accountPath + "/holdings"));
+        assertUnauthorized(request(client, "GET", accountPath + "/realized-trading-summary"));
         assertUnauthorized(request(client, "GET", accountPath + "/instruments/ISIN:US67066G1040"));
         assertUnauthorized(uploadCsv(client, accountId));
         assertUnauthorized(request(client, "GET", accountPath + "/import-batches"));
@@ -151,6 +152,7 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertListedAccount(secondClient, secondAccountId);
         assertThat(request(secondClient, "GET", activitiesPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "GET", firstAccountPath + "/holdings").statusCode()).isEqualTo(404);
+        assertThat(request(secondClient, "GET", firstAccountPath + "/realized-trading-summary").statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "GET", firstAccountPath + "/instruments/ISIN:US67066G1040").statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "GET", batchesPath).statusCode()).isEqualTo(404);
         assertThat(request(secondClient, "DELETE", firstAccountPath).statusCode()).isEqualTo(404);
@@ -255,6 +257,41 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(request(client, "GET", path + "ISIN:US0378331005").statusCode()).isEqualTo(404);
         assertThat(request(client, "GET", path + "NAME:NVDA").statusCode()).isEqualTo(400);
         assertThat(request(client, "GET", path + "TICKER:" + "A".repeat(41)).statusCode()).isEqualTo(400);
+    }
+
+    @Test
+    void returnsAccountRealizedOverviewAndPagedContributionsUsingSessionAuthentication() throws Exception {
+        HttpClient client = newClient();
+        createGuest(client);
+        UUID accountId = createAccount(client);
+        String csv = """
+                Action,Time (UTC),ISIN,Ticker,Name,ID,No. of shares,Total,Currency (Total),Result,Currency (Result)
+                Limit buy,2026-09-01 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,BUY-N,10,1000,EUR,,
+                Limit buy,2026-09-01 11:00:00+00:00,US0378331005,AAPL,Apple,BUY-A,5,500,EUR,,
+                Limit sell,2026-09-30 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,BEFORE,1,110,EUR,100,EUR
+                Limit sell,2026-10-01 10:00:00+00:00,US67066G1040,NVDA,NVIDIA,SELL-N,2,220,EUR,12.50,EUR
+                Stop sell,2026-10-31 23:59:59+00:00,US0378331005,AAPL,Apple,SELL-A,1,90,EUR,-2,EUR
+                Limit sell,2026-11-01 00:00:00+00:00,US67066G1040,NVDA,NVIDIA,AFTER,1,120,EUR,200,EUR
+                """;
+        assertThat(uploadCsv(client, accountId, csv).statusCode()).isEqualTo(201);
+        String path = "/api/brokerage-accounts/" + accountId + "/realized-trading-summary";
+        String filters = "?from=2026-10-01&to=2026-10-31&currency=eur&size=1";
+        HttpResponse<String> first = request(client, "GET", path + filters);
+        assertTotalElements(first, 2);
+        assertThat(first.headers().firstValue("Cache-Control")).contains("no-store");
+        assertThat(JsonPath.<String>read(first.body(), "$.from")).isEqualTo("2026-10-01");
+        assertThat(JsonPath.<String>read(first.body(), "$.currency")).isEqualTo("EUR");
+        assertThat(JsonPath.<Number>read(first.body(), "$.realizedSummary.currencies[0].totalResult").doubleValue()).isEqualTo(10.5);
+        assertThat(JsonPath.<String>read(first.body(), "$.contributions[0].instrumentKey")).isEqualTo("ISIN:US67066G1040");
+        HttpResponse<String> second = request(client, "GET", path + filters + "&page=1");
+        assertThat(second.statusCode()).isEqualTo(200);
+        assertThat(JsonPath.<Number>read(second.body(), "$.realizedSummary.currencies[0].totalResult").doubleValue()).isEqualTo(10.5);
+        assertThat(JsonPath.<String>read(second.body(), "$.contributions[0].ticker")).isEqualTo("AAPL");
+        assertThat(request(client, "GET", path + "?from=2026-10-31&to=2026-10-01").statusCode()).isEqualTo(400);
+        assertThat(request(client, "GET", path + "?currency=EURO").statusCode()).isEqualTo(400);
+        HttpResponse<String> all = request(client, "GET", path);
+        assertThat(all.statusCode()).isEqualTo(200);
+        assertThat(JsonPath.<Number>read(all.body(), "$.realizedSummary.currencies[0].totalResult").doubleValue()).isEqualTo(310.5);
     }
 
     private HttpClient newClient() {
