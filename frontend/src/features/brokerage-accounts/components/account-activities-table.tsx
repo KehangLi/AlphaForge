@@ -12,6 +12,7 @@ import {
   formatPageLabel,
 } from "../formatters";
 import type { AccountActivityResponse } from "../types";
+import { ActivityJournalNote } from "./activity-journal-note";
 
 type AccountActivitiesTableProps = {
   activities: AccountActivityResponse[];
@@ -82,7 +83,7 @@ export function AccountActivitiesTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse text-sm">
+        <table className="w-full min-w-[1180px] border-collapse text-sm">
           <thead className="bg-[#f4f7f5] text-left text-xs uppercase tracking-[0.12em] text-[#65746a]">
             <tr>
               <th className="px-5 py-4 font-semibold">Date</th>
@@ -91,6 +92,8 @@ export function AccountActivitiesTable({
               <th className="px-5 py-4 font-semibold">Shares</th>
               <th className="px-5 py-4 text-right font-semibold">Price</th>
               <th className="px-5 py-4 text-right font-semibold">Total</th>
+              <th className="px-5 py-4 text-right font-semibold">Realized result</th>
+              <th className="px-5 py-4 font-semibold">Notes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e3e9e5]">
@@ -98,7 +101,7 @@ export function AccountActivitiesTable({
               <tr>
                 <td
                   className="px-5 py-10 text-center text-sm font-medium text-[#65746a]"
-                  colSpan={6}
+                  colSpan={8}
                 >
                   Loading account activity...
                 </td>
@@ -108,7 +111,7 @@ export function AccountActivitiesTable({
               <tr>
                 <td
                   className="px-5 py-10 text-center text-sm font-medium text-[#9a3412]"
-                  colSpan={6}
+                  colSpan={8}
                 >
                   {formatErrorMessage(error, "Failed to load account activity.")}
                 </td>
@@ -118,7 +121,7 @@ export function AccountActivitiesTable({
               <tr>
                 <td
                   className="px-5 py-10 text-center text-sm font-medium text-[#65746a]"
-                  colSpan={6}
+                  colSpan={8}
                 >
                   {emptyMessage}
                 </td>
@@ -167,6 +170,20 @@ export function AccountActivitiesTable({
                     activity.totalCurrency ?? activity.resultCurrency,
                   )}
                 </td>
+                <td
+                  className={`px-5 py-4 text-right font-semibold ${resultClassName(activity.resultAmount)}`}
+                >
+                  {formatSignedMoney(
+                    activity.resultAmount,
+                    activity.resultCurrency,
+                  )}
+                </td>
+                <td className="max-w-[260px] px-5 py-4 align-top">
+                  <ActivityJournalNote
+                    activity={activity}
+                    brokerageAccountId={brokerageAccountId}
+                  />
+                </td>
               </tr>
             )) : null}
           </tbody>
@@ -201,4 +218,24 @@ function getInstrumentKey(activity: AccountActivityResponse) {
   if (activity.isin) return `ISIN:${activity.isin}`;
   if (activity.ticker) return `TICKER:${activity.ticker}`;
   return null;
+}
+
+function resultClassName(amount: number | null) {
+  if (amount === null) return "text-[#65746a]";
+  return amount > 0
+    ? "text-[#2d654b]"
+    : amount < 0
+      ? "text-[#9a3412]"
+      : "text-[#65746a]";
+}
+
+function formatSignedMoney(amount: number | null, currency: string | null) {
+  if (amount === null) return "-";
+
+  const formatted = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 4,
+    signDisplay: "exceptZero",
+  }).format(amount);
+
+  return currency ? `${formatted} ${currency}` : formatted;
 }
