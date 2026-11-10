@@ -9,6 +9,7 @@ import {
 
 import { getCachedUserId, isCurrentUser } from "@/features/auth/session-cache";
 import { holdingsQueryKeys } from "@/features/holdings/queries";
+import { realizedTradingQueryKeys } from "@/features/realized-trading/queries";
 
 import {
   createBrokerageAccount,
@@ -105,6 +106,9 @@ export function useDeleteBrokerageAccountMutation() {
       queryClient.removeQueries({
         queryKey: holdingsQueryKeys.byAccount(brokerageAccountId),
       });
+      queryClient.removeQueries({
+        queryKey: realizedTradingQueryKeys.byAccount(brokerageAccountId),
+      });
 
       await queryClient.invalidateQueries({
         queryKey: brokerageAccountQueryKeys.all,
@@ -176,6 +180,9 @@ export function useImportAccountActivitiesMutation() {
         queryClient.invalidateQueries({
           queryKey: holdingsQueryKeys.byAccount(result.brokerageAccountId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: realizedTradingQueryKeys.byAccount(result.brokerageAccountId),
+        }),
       ]);
     },
   });
@@ -206,6 +213,9 @@ export function useDeleteImportBatchMutation() {
         }),
         queryClient.invalidateQueries({
           queryKey: holdingsQueryKeys.byAccount(variables.brokerageAccountId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: realizedTradingQueryKeys.byAccount(variables.brokerageAccountId),
         }),
       ]);
     },

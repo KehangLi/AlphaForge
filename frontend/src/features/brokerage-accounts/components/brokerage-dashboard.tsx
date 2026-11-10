@@ -8,6 +8,7 @@ import {
 } from "@/features/guest-session/components/guest-onboarding-states";
 import { SessionMenu } from "@/features/auth/components/session-menu";
 import { HoldingsTable } from "@/features/holdings/components/holdings-table";
+import { RealizedResultsView } from "@/features/realized-trading/components/realized-results-view";
 import { AccountManagementDialog } from "./account-management-dialog";
 import { AccountActivitiesTable } from "./account-activities-table";
 import { AccountToolbar } from "./account-toolbar";
@@ -101,6 +102,12 @@ export function BrokerageDashboard() {
                   isFetching={workspace.isHoldingsFetching}
                   isLoading={workspace.isHoldingsLoading}
                   onRefresh={() => void workspace.refetchHoldings()}
+                />
+              ) : workspace.activeView === "realized" ? (
+                <RealizedResultsView
+                  baseCurrency={workspace.selectedAccount?.baseCurrency}
+                  brokerageAccountId={workspace.selectedAccountId}
+                  key={workspace.selectedAccountId}
                 />
               ) : isActivityEmpty ? (
                 <GuestActivityEmptyState

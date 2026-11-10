@@ -14,7 +14,9 @@ const IMPORT_BATCH_PAGE_SIZE = 20;
 
 export function useBrokerageWorkspace() {
   const [selectedAccountId, setSelectedAccountId] = useState("");
-  const [activeView, setActiveView] = useState<"activities" | "holdings">(
+  const [activeView, setActiveView] = useState<
+    "activities" | "holdings" | "realized"
+  >(
     "activities",
   );
   const [holdingsPage, setHoldingsPage] = useState(0);

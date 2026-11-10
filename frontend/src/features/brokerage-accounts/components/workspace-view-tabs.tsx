@@ -1,4 +1,4 @@
-type WorkspaceView = "activities" | "holdings";
+type WorkspaceView = "activities" | "holdings" | "realized";
 
 type WorkspaceViewTabsProps = {
   activeView: WorkspaceView;
@@ -28,6 +28,13 @@ export function WorkspaceViewTabs({
         tab="holdings"
       >
         Holdings
+      </TabButton>
+      <TabButton
+        active={activeView === "realized"}
+        onClick={() => onChange("realized")}
+        tab="realized"
+      >
+        Realized results
       </TabButton>
     </div>
   );
