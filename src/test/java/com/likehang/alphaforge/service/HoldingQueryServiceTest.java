@@ -131,7 +131,6 @@ class HoldingQueryServiceTest {
                 activity("Limit buy", null, " nvda ", "1", 1),
                 activity("Limit buy", "US67066G1040", "NVDA", "2", 2),
                 activity("Limit buy", "US0378331005", "NVDA", "3", 3),
-                activity("Limit buy", null, null, "4", 4),
                 activity("Dividend (Dividend)", "US88160R1014", "TSLA", "9", 5)
         ));
         assertThat(query(HoldingFilter.ALL, "", 0, 10).holdings()).extracting("instrumentKey")
@@ -165,6 +164,27 @@ class HoldingQueryServiceTest {
                 activity("Limit buy", "US67066G1040", "NVDA", null, 1)));
         assertThatThrownBy(() -> query(HoldingFilter.ALL, "", 0, 10))
                 .isInstanceOf(ConflictException.class).hasMessageContaining("missing number of shares");
+    }
+
+    @Test
+    void rejectsUnidentifiableLegacyTradeInsteadOfSilentlyDroppingIt() {
+        when(activities.findHoldingActivities(userId, accountId)).thenReturn(List.of(
+                activity("Limit buy", "US67066G1040", "NVDA", "2", 1),
+                activity("Limit buy", " ", null, "4", 2)));
+
+        assertThatThrownBy(() -> query(HoldingFilter.ALL, "", 0, 10))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("ISIN and ticker").hasMessageContaining("CSV row 3");
+    }
+
+    @Test
+    void rejectsUnknownLegacyActionInsteadOfPublishingAnIncompletePosition() {
+        when(activities.findHoldingActivities(userId, accountId)).thenReturn(List.of(
+                activity("Limit bye", "US67066G1040", "NVDA", "2", 1)));
+
+        assertThatThrownBy(() -> query(HoldingFilter.ALL, "", 0, 10))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Action").hasMessageContaining("CSV row 2");
     }
 
     @Test

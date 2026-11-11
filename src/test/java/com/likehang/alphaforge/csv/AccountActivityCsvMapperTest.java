@@ -2,6 +2,7 @@ package com.likehang.alphaforge.csv;
 
 import com.likehang.alphaforge.csv.dto.AccountActivityCsvHeaders;
 import com.likehang.alphaforge.csv.dto.AccountActivityCsvRow;
+import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
@@ -97,7 +98,7 @@ class AccountActivityCsvMapperTest {
         ImportBatch importBatch = new ImportBatch(brokerageAccount, "sample.csv");
 
         assertThatThrownBy(() -> mapper.toEntity(row, importBatch, brokerageAccount, 4))
-                .isInstanceOf(CsvRowMappingException.class)
+                .isInstanceOf(CsvImportException.class)
                 .hasMessageContaining("CSV row 4")
                 .hasMessageContaining(AccountActivityCsvHeaders.ACTION)
                 .hasMessageContaining("value is required");
