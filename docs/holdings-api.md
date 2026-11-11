@@ -66,8 +66,9 @@ is also empty, retaining the actual filtered total.
   position calculation.
 - Buy/sell recognition, absolute share quantities at 10 decimal places, and
   instrument identity are shared with the import holding validator through
-  `TradeActivitySupport`. As in the existing import validator, actions containing
-  BUY or SELL are treated as trades (case-insensitive, SELL takes precedence).
+  `TradeActivitySupport`. `AccountActivityAction` explicitly recognizes Market,
+  Limit, Stop, and Stop limit buys/sells (case-insensitive, ignoring surrounding
+  whitespace). Unsupported actions fail instead of being guessed or skipped.
 - Purchases increase `totalBoughtQuantity`, sales increase `totalSoldQuantity`,
   and `quantity = totalBoughtQuantity - totalSoldQuantity`. Totals span every
   imported trading cycle, including periods after closing and reopening a position.
@@ -77,8 +78,10 @@ is also empty, retaining the actual filtered total.
 - ISIN takes precedence over ticker; identifiers are trimmed and uppercased.
   Ticker-only history uses a separate `TICKER:` key. It is not automatically
   merged with ISIN-backed history, since a shared ticker does not prove identity.
-  Names alone are not identities; rows without either ISIN or ticker cannot create
-  an identifiable holding. Dividend-only instruments have no inferred position.
+  Names alone are not identities. Nonzero trades without either ISIN or ticker
+  cause a 409 rather than disappearing from the result. New imports reject such
+  trades, including zero-share rows, with a 400 and roll back the whole batch.
+  Dividend-only instruments have no inferred position.
 - The latest nonblank trade ticker/name in chronological order supplies display
   metadata. A backfilled older import does not replace newer trade metadata.
 - A missing trade quantity or negative balance at any point in replay returns
