@@ -1,6 +1,7 @@
 package com.likehang.alphaforge.service.holding;
 
 import com.likehang.alphaforge.exception.BadRequestException;
+import com.likehang.alphaforge.model.activity.AccountActivityAction;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -21,13 +22,9 @@ public final class TradeActivitySupport {
     }
 
     public static BigDecimal shareChange(String action, BigDecimal shares, int rowNumber) {
-        String normalizedAction = normalizeIdentifier(action);
-        if (normalizedAction == null) {
-            return null;
-        }
-        boolean isBuy = normalizedAction.contains("BUY");
-        boolean isSell = normalizedAction.contains("SELL");
-        if (!isBuy && !isSell) {
+        AccountActivityAction activityAction = AccountActivityAction.fromCsvValue(action)
+                .orElseThrow(() -> new BadRequestException("Unsupported or missing Action at CSV row " + rowNumber));
+        if (!activityAction.isTrade()) {
             return null;
         }
         if (shares == null) {
@@ -37,7 +34,16 @@ public final class TradeActivitySupport {
         if (quantity.signum() == 0) {
             return null;
         }
-        return isSell ? quantity.negate() : quantity;
+        return activityAction.isSell() ? quantity.negate() : quantity;
+    }
+
+    public static String requiredInstrumentKey(String isin, String ticker, int rowNumber) {
+        String key = instrumentKey(isin, ticker);
+        if (key == null) {
+            throw new BadRequestException("Trade row is missing ISIN and ticker at CSV row " + rowNumber
+                    + ". Correct the trading history before calculating holdings.");
+        }
+        return key;
     }
 
     public static String normalizeIdentifier(String value) {
