@@ -21,14 +21,15 @@ public class HoldingCalculator {
         Map<String, Position> positions = new HashMap<>();
         for (HoldingActivity activity : history) {
             BigDecimal change;
+            String instrumentKey;
             try {
                 change = TradeActivitySupport.shareChange(activity.action(), activity.numberOfShares(), activity.rowNumber());
+                if (change == null) {
+                    continue;
+                }
+                instrumentKey = TradeActivitySupport.requiredInstrumentKey(activity.isin(), activity.ticker(), activity.rowNumber());
             } catch (BadRequestException exception) {
                 throw new ConflictException("Imported history cannot be used to calculate holdings. " + exception.getMessage());
-            }
-            String instrumentKey = TradeActivitySupport.instrumentKey(activity.isin(), activity.ticker());
-            if (change == null || instrumentKey == null) {
-                continue;
             }
             positions.computeIfAbsent(instrumentKey, Position::new).apply(activity, change);
         }

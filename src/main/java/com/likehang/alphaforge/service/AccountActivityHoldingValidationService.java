@@ -54,10 +54,8 @@ public class AccountActivityHoldingValidationService {
                 continue;
             }
 
-            String instrumentKey = TradeActivitySupport.instrumentKey(activity.getIsin(), activity.getTicker());
-            if (instrumentKey == null) {
-                continue;
-            }
+            String instrumentKey = TradeActivitySupport.requiredInstrumentKey(
+                    activity.getIsin(), activity.getTicker(), activity.getRowNumber());
 
             BigDecimal updatedShares = holdings.getOrDefault(instrumentKey, ZERO).add(shareChange);
             if (updatedShares.compareTo(ZERO) < 0) {

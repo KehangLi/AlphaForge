@@ -13,6 +13,8 @@ import com.likehang.alphaforge.rest.dto.response.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.support.AbstractPostgresIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -61,6 +63,33 @@ class ImportIntegrityIntegrationTest extends AbstractPostgresIntegrationTest {
         upload(accountId, BUY);
         assertThatThrownBy(() -> upload(accountId, SELL + BUY))
                 .isInstanceOf(ConflictException.class).hasMessageContaining("CSV row 3");
+        assertThat(batches.count()).isEqualTo(1);
+        assertThat(activities.count()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Limit buy", "Limit sell"})
+    void missingTradeIdentifiersRollBackTheNewBatchAndAllItsValidRows(String action) {
+        upload(accountId, BUY);
+        String invalid = action + ",2026-10-03 10:00:00+00:00, , ,MISSING-ID,1,100,EUR\n";
+
+        assertThatThrownBy(() -> upload(accountId, SELL + invalid))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("CSV row 3").hasMessageContaining("ISIN/Ticker");
+        assertThat(batches.count()).isEqualTo(1);
+        assertThat(activities.findByBrokerageAccount_Id(accountId)).singleElement()
+                .satisfies(activity -> assertThat(activity.getExternalTransactionId()).isEqualTo("BUY-1"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Limit bye", "Limit sell cancelled"})
+    void unsupportedActionsRollBackTheNewBatchAndAllItsValidRows(String action) {
+        upload(accountId, BUY);
+        String invalid = BUY.replace("Limit buy", action).replace("BUY-1", "UNKNOWN");
+
+        assertThatThrownBy(() -> upload(accountId, SELL + invalid))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("CSV row 3").hasMessageContaining("unsupported action");
         assertThat(batches.count()).isEqualTo(1);
         assertThat(activities.count()).isEqualTo(1);
     }
