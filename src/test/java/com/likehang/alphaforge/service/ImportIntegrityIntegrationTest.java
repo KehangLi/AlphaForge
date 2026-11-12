@@ -5,6 +5,7 @@ import com.likehang.alphaforge.exception.ConflictException;
 import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
+import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import com.likehang.alphaforge.repository.AccountActivityRepository;
 import com.likehang.alphaforge.repository.AppUserRepository;
 import com.likehang.alphaforge.repository.BrokerageAccountRepository;
@@ -13,6 +14,8 @@ import com.likehang.alphaforge.rest.dto.response.AccountActivityCsvImportResult;
 import com.likehang.alphaforge.support.AbstractPostgresIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -63,6 +66,30 @@ class ImportIntegrityIntegrationTest extends AbstractPostgresIntegrationTest {
                 .isInstanceOf(ConflictException.class).hasMessageContaining("CSV row 3");
         assertThat(batches.count()).isEqualTo(1);
         assertThat(activities.count()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-02-30 10:00:00+00:00", "2026-02-30T10:00:00Z"})
+    void invalidTradeDateIsReportedAndNeverPersistedAsACorrectedDate(String timestamp) {
+        String invalidSell = SELL.replace("2026-10-02 10:00:00+00:00", timestamp);
+
+        var result = upload(accountId, BUY + invalidSell);
+
+        assertThat(result.status()).isEqualTo(ImportBatchStatus.COMPLETED_WITH_ERRORS);
+        assertThat(result.totalRows()).isEqualTo(2);
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errors()).singleElement().satisfies(error -> {
+            assertThat(error.rowNumber()).isEqualTo(3);
+            assertThat(error.columnName()).isEqualTo("Time (UTC)");
+            assertThat(error.message()).isEqualTo("invalid timestamp: " + timestamp);
+        });
+        assertThat(activities.findByBrokerageAccount_Id(accountId)).singleElement()
+                .satisfies(activity -> assertThat(activity.getExternalTransactionId()).isEqualTo("BUY-1"));
+        assertThat(batches.findById(result.importBatchId())).hasValueSatisfying(batch -> {
+            assertThat(batch.getStatus()).isEqualTo(ImportBatchStatus.COMPLETED_WITH_ERRORS);
+            assertThat(batch.getFailedRows()).isEqualTo(1);
+        });
     }
 
     @Test

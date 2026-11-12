@@ -7,6 +7,9 @@ import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -101,6 +104,62 @@ class AccountActivityCsvMapperTest {
                 .hasMessageContaining("CSV row 4")
                 .hasMessageContaining(AccountActivityCsvHeaders.ACTION)
                 .hasMessageContaining("value is required");
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', textBlock = """
+            2026-07-01 13:35:43+00:00 | 2026-07-01T13:35:43Z
+            2026-02-28 23:59:59+00:00 | 2026-02-28T23:59:59Z
+            2024-02-29 10:00:00+00:00 | 2024-02-29T10:00:00Z
+            2000-02-29 10:00:00+00:00 | 2000-02-29T10:00:00Z
+            2026-04-30 10:00:00+00:00 | 2026-04-30T10:00:00Z
+            2026-07-01 15:35:43+02:00 | 2026-07-01T15:35:43+02:00
+            2026-07-01T13:35:43Z | 2026-07-01T13:35:43Z
+            2024-02-29T10:00:00Z | 2024-02-29T10:00:00Z
+            2026-07-01T13:35:43.123456789Z | 2026-07-01T13:35:43.123456789Z
+            2026-07-01T08:35:43-05:00 | 2026-07-01T08:35:43-05:00
+            """)
+    void parsesValidDatesWithoutChangingTheirDateTimeOrOffset(String timestamp, String expected) {
+        Map<String, String> columns = sampleLimitBuyColumns();
+        columns.put(AccountActivityCsvHeaders.TIME_UTC, timestamp);
+        BrokerageAccount account = sampleBrokerageAccount();
+
+        AccountActivity activity = mapper.toEntity(AccountActivityCsvRow.fromColumns(columns),
+                new ImportBatch(account, "sample.csv"), account, 4);
+
+        assertThat(activity.getOccurredAt()).isEqualTo(OffsetDateTime.parse(expected));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "2026-02-30 10:00:00+00:00",
+            "2026-02-29 10:00:00+00:00",
+            "1900-02-29 10:00:00+00:00",
+            "2026-04-31 10:00:00+00:00",
+            "2026-00-01 10:00:00+00:00",
+            "2026-13-01 10:00:00+00:00",
+            "2026-01-00 10:00:00+00:00",
+            "2026-01-32 10:00:00+00:00",
+            "2026-07-01 24:00:00+00:00",
+            "2026-07-01 10:60:00+00:00",
+            "2026-07-01 10:00:60+00:00",
+            "2026-07-01 10:00:00",
+            "2026-02-30T10:00:00Z",
+            "2026-02-29T10:00:00+02:00",
+            "2026-07-01T24:00:00Z"
+    })
+    void rejectsInvalidTimestampsInsteadOfCorrectingThem(String timestamp) {
+        Map<String, String> columns = sampleLimitBuyColumns();
+        columns.put(AccountActivityCsvHeaders.TIME_UTC, timestamp);
+        BrokerageAccount account = sampleBrokerageAccount();
+
+        assertThatThrownBy(() -> mapper.toEntity(AccountActivityCsvRow.fromColumns(columns),
+                new ImportBatch(account, "sample.csv"), account, 4))
+                .isInstanceOfSatisfying(CsvRowMappingException.class, exception -> {
+                    assertThat(exception.getRowNumber()).isEqualTo(4);
+                    assertThat(exception.getColumnName()).isEqualTo(AccountActivityCsvHeaders.TIME_UTC);
+                    assertThat(exception.getReason()).isEqualTo("invalid timestamp: " + timestamp);
+                });
     }
 
     private static BrokerageAccount sampleBrokerageAccount() {
