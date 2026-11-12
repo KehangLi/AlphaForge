@@ -7,10 +7,12 @@ import {
   useImportBatchesQuery,
 } from "../queries";
 import { useHoldingsQuery } from "@/features/holdings/queries";
+import type { HoldingFilter } from "@/features/holdings/types";
 import type { BrokerageAccountListResponse } from "../types";
 
 const ACTIVITY_PAGE_SIZE = 10;
 const IMPORT_BATCH_PAGE_SIZE = 20;
+const HOLDINGS_PAGE_SIZE = 20;
 
 export function useBrokerageWorkspace() {
   const [selectedAccountId, setSelectedAccountId] = useState("");
@@ -20,6 +22,7 @@ export function useBrokerageWorkspace() {
     "activities",
   );
   const [holdingsPage, setHoldingsPage] = useState(0);
+  const [holdingsStatus, setHoldingsStatus] = useState<HoldingFilter>("OPEN");
   const [activityPage, setActivityPage] = useState(0);
   const [isImportSidebarOpen, setIsImportSidebarOpen] = useState(true);
   const [isAccountManagementOpen, setIsAccountManagementOpen] = useState(false);
@@ -69,6 +72,8 @@ export function useBrokerageWorkspace() {
   const holdingsQuery = useHoldingsQuery({
     brokerageAccountId: resolvedSelectedAccountId,
     page: holdingsPage,
+    size: HOLDINGS_PAGE_SIZE,
+    status: holdingsStatus,
     enabled: activeView === "holdings",
   });
   const deletingImportBatchId = deleteImportBatchMutation.isPending
@@ -76,8 +81,7 @@ export function useBrokerageWorkspace() {
     : undefined;
 
   function resetAccountActions() {
-    setActivityPage(0);
-    setHoldingsPage(0);
+    resetTablePages();
     deleteImportBatchMutation.reset();
   }
 
@@ -86,12 +90,22 @@ export function useBrokerageWorkspace() {
     resetAccountActions();
   }
 
+  function handleHoldingsStatusChange(status: HoldingFilter) {
+    setHoldingsStatus(status);
+    setHoldingsPage(0);
+  }
+
+  function resetTablePages() {
+    setActivityPage(0);
+    setHoldingsPage(0);
+  }
+
   function handleDeleteImportBatch(importBatchId: string) {
     if (!resolvedSelectedAccountId || deleteImportBatchMutation.isPending) {
       return;
     }
 
-    setActivityPage(0);
+    resetTablePages();
     deleteImportBatchMutation.mutate({
       brokerageAccountId: resolvedSelectedAccountId,
       importBatchId,
@@ -139,6 +153,7 @@ export function useBrokerageWorkspace() {
     refetchAccountActivities,
     activityPage,
     setActivityPage,
+    onImportStarted: resetTablePages,
 
     importBatchPage,
     importBatchesError,
@@ -157,6 +172,8 @@ export function useBrokerageWorkspace() {
     isHoldingsLoading: holdingsQuery.isLoading,
     refetchHoldings: holdingsQuery.refetch,
     holdingsPageNumber: holdingsPage,
+    holdingsStatus,
+    onHoldingsStatusChange: handleHoldingsStatusChange,
     setHoldingsPage,
 
     isImportSidebarOpen,
