@@ -46,7 +46,7 @@ export function BrokerageDashboard() {
               <CsvImportAction
                 accountId={workspace.selectedAccountId}
                 key={workspace.selectedAccountId}
-                onImportStarted={() => workspace.setActivityPage(0)}
+                onImportStarted={workspace.onImportStarted}
               />
             ) : null}
             <SessionMenu />
@@ -101,7 +101,17 @@ export function BrokerageDashboard() {
                   isError={workspace.isHoldingsError}
                   isFetching={workspace.isHoldingsFetching}
                   isLoading={workspace.isHoldingsLoading}
+                  isPageFirst={workspace.holdingsPage?.first ?? workspace.holdingsPageNumber === 0}
+                  isPageLast={workspace.holdingsPage?.last ?? true}
+                  onNextPage={() => workspace.setHoldingsPage((page) => page + 1)}
+                  onPreviousPage={() => workspace.setHoldingsPage((page) => Math.max(page - 1, 0))}
                   onRefresh={() => void workspace.refetchHoldings()}
+                  onStatusChange={workspace.onHoldingsStatusChange}
+                  page={workspace.holdingsPage?.page ?? workspace.holdingsPageNumber}
+                  size={workspace.holdingsPage?.size ?? 20}
+                  status={workspace.holdingsStatus}
+                  totalElements={workspace.holdingsPage?.totalElements}
+                  totalPages={workspace.holdingsPage?.totalPages}
                 />
               ) : workspace.activeView === "realized" ? (
                 <RealizedResultsView
@@ -114,7 +124,7 @@ export function BrokerageDashboard() {
                   importAction={
                     <CsvImportAction
                       accountId={workspace.selectedAccountId}
-                      onImportStarted={() => workspace.setActivityPage(0)}
+                      onImportStarted={workspace.onImportStarted}
                     />
                   }
                 />
