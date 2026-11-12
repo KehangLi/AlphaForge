@@ -99,6 +99,26 @@ class AccountActivityCsvParserTest {
         assertThat(result.errors()).isEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-02-30 10:00:00+00:00", "2026-02-30T10:00:00Z"})
+    void reportsInvalidDateAsARowErrorAndDoesNotEmitACorrectedActivity(String timestamp) {
+        String csv = "Action,Time (UTC),Total,Currency (Total)\n"
+                + "Interest on cash,2026-02-28 10:00:00+00:00,1,EUR\n"
+                + "Interest on cash," + timestamp + ",2,EUR\n";
+
+        var result = parse(csv, 10);
+
+        assertThat(result.totalRows()).isEqualTo(2);
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.activities()).singleElement()
+                .satisfies(activity -> assertThat(activity.getRowNumber()).isEqualTo(2));
+        assertThat(result.errors()).singleElement().satisfies(error -> {
+            assertThat(error.rowNumber()).isEqualTo(3);
+            assertThat(error.columnName()).isEqualTo("Time (UTC)");
+            assertThat(error.message()).isEqualTo("invalid timestamp: " + timestamp);
+        });
+    }
+
     private AccountActivityCsvParseResult parse(String csv, int rows) {
         return parser.parse(csv.getBytes(StandardCharsets.UTF_8), new ImportBatch(account, "test.csv"), account, rows);
     }

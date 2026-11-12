@@ -41,6 +41,13 @@ Existing data is not rewritten. Holding queries return 409 for unsupported
 actions or nonzero trades without an instrument identifier rather than silently
 omitting those rows. Review and correct the original export/history before retrying.
 
+CSV timestamps use strict calendar validation. Both `2026-07-01 13:35:43+00:00`
+and ISO offset timestamps such as `2026-07-01T13:35:43.123456Z` are supported;
+an explicit UTC marker or offset is required. Invalid dates such as February 30,
+February 29 in a non-leap year, and 24:00:00 are rejected instead of being
+adjusted. They produce a `Time (UTC)` row error with the original value, and that
+row is not saved. Valid rows still follow the existing partial-import policy.
+
 Economic content uses the UTC instant, action, instrument (ISIN first, then
 ticker, then name), quantities, price, exchange rate, amounts/currencies, taxes,
 fees, and merchant data. Decimal formatting and timezone offsets do not change

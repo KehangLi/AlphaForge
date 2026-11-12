@@ -16,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -26,7 +27,8 @@ import java.util.Locale;
 public class AccountActivityCsvMapper {
 
     private static final List<DateTimeFormatter> TIME_FORMATTERS = List.of(
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX"),
+            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ssXXX", Locale.ROOT)
+                    .withResolverStyle(ResolverStyle.STRICT),
             DateTimeFormatter.ISO_OFFSET_DATE_TIME
     );
 
