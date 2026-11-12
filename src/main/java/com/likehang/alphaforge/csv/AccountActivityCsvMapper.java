@@ -2,6 +2,8 @@ package com.likehang.alphaforge.csv;
 
 import com.likehang.alphaforge.csv.dto.AccountActivityCsvHeaders;
 import com.likehang.alphaforge.csv.dto.AccountActivityCsvRow;
+import com.likehang.alphaforge.exception.CsvImportException;
+import com.likehang.alphaforge.model.activity.AccountActivityAction;
 import com.likehang.alphaforge.model.entity.AccountActivity;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
@@ -36,6 +38,7 @@ public class AccountActivityCsvMapper {
             BrokerageAccount brokerageAccount,
             int rowNumber
     ) {
+        validateActionAndInstrument(row, rowNumber);
         AccountActivity accountActivity = new AccountActivity();
         accountActivity.setImportBatch(importBatch);
         accountActivity.setBrokerageAccount(brokerageAccount);
@@ -63,6 +66,21 @@ public class AccountActivityCsvMapper {
         accountActivity.setMerchantCategory(trimToNull(row.merchantCategory()));
         accountActivity.setRawRowHash(hashRawRow(row));
         return accountActivity;
+    }
+
+    private static void validateActionAndInstrument(AccountActivityCsvRow row, int rowNumber) {
+        String actionValue = trimToNull(row.action());
+        if (actionValue == null) {
+            throw new CsvImportException("CSV row " + rowNumber + " column Action: value is required");
+        }
+        AccountActivityAction action = AccountActivityAction.fromCsvValue(actionValue)
+                .orElseThrow(() -> new CsvImportException("CSV row " + rowNumber
+                        + " column Action: unsupported action: " + actionValue));
+        if (action.isTrade() && trimToNull(row.isin()) == null && trimToNull(row.ticker()) == null) {
+            // These errors abort the file: skipping a trade would leave incomplete history.
+            throw new CsvImportException("CSV row " + rowNumber
+                    + " columns ISIN/Ticker: buy and sell activities require at least one instrument identifier.");
+        }
     }
 
     private static String requiredString(String value, String columnName, int rowNumber) {

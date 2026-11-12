@@ -17,6 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
@@ -48,6 +49,7 @@ class AccountRealizedTradingIntegrationTest extends AbstractPostgresIntegrationT
     @Autowired ImportBatchService batches;
     @Autowired BrokerageAccountService accountService;
     @Autowired AccountRealizedTradingQueryService summaries;
+    @Autowired JdbcTemplate jdbc;
     @MockitoSpyBean RealizedTradingCalculator calculator;
 
     private AppUser user;
@@ -70,14 +72,19 @@ class AccountRealizedTradingIntegrationTest extends AbstractPostgresIntegrationT
                 + row("Limit sell", NVDA, "NVDA", "MISSING", "1", "", "EUR", "2026-10-06T10:00:00Z")
                 + row("Limit sell", NVDA, "NVDA", "USD", "1", "5", "USD", "2026-10-07T10:00:00Z")
                 + row("Limit sell", AAPL, "AAPL", "AAPL", "1", "-2", "EUR", "2026-10-02T10:00:00Z")
-                + row("Limit sell", "", "", "UNKNOWN", "1", "4", "EUR", "2026-10-03T10:00:00Z")
-                + row("Limit sell", "", "", "NO-CURRENCY", "1", "5", "", "2026-10-04T10:00:00Z")
+                + row("Limit sell", NVDA, "NVDA", "UNKNOWN", "1", "4", "EUR", "2026-10-03T10:00:00Z")
+                + row("Limit sell", NVDA, "NVDA", "NO-CURRENCY", "1", "5", "", "2026-10-04T10:00:00Z")
                 + row("Limit sell", "", "FALLBACK", "FALLBACK", "1", "2", "EUR", "2026-10-08T10:00:00Z")
                 + row("Limit sell", NVDA, "NVDA", "NEITHER", "1", "", "", "2026-10-09T10:00:00Z")
                 + row("Dividend (Dividend)", NVDA, "NVDA", "DIV", "100", "50", "EUR", "2026-10-10T10:00:00Z")
                 + row("Result adjustment", "", "", "ADJ", "", "200", "EUR", "2026-10-11T10:00:00Z")
                 + row("Interest on cash", "", "", "CASH", "", "20", "EUR", "2026-10-12T10:00:00Z");
         upload(rows);
+        // Simulate legacy data; new imports must reject trades without identifiers.
+        jdbc.update("""
+                update account_activity set isin = null, ticker = null
+                where brokerage_account_id = ? and external_transaction_id in ('UNKNOWN', 'NO-CURRENCY')
+                """, account);
         var result = query("2026-10-01", "2026-10-31", null, 0, 200);
         assertThat(result.realizedSummary().sellRecordCount()).isEqualTo(10);
         assertThat(result.realizedSummary().includedSellRecordCount()).isEqualTo(7);

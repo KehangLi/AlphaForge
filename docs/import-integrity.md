@@ -17,12 +17,29 @@ This applies to registered users as well as guests, across application replicas.
   reject (409), asking the user to resolve overlapping exports.
 - Different nonblank IDs can share a timestamp and economic content. They may be
   separate fills and are allowed.
+- Unsupported or missing `Action`: reject the entire upload (400), with the CSV
+  row and column. Matching ignores case and surrounding whitespace, but never
+  guesses the meaning of a typo or treats an unknown action as cash activity.
+- Buy/sell rows with neither a nonblank ISIN nor a nonblank ticker: reject the entire upload (400).
+  At least one is required, including for zero-share rows; a name is insufficient.
+  Supported non-trade rows can still omit both identifiers.
 
 These checks compare both saved activities and earlier rows in the current file.
 A duplicate/conflict rejects the **whole transaction**, including the new batch
 and otherwise valid new activities. Errors name the CSV row and the matching
 batch/row, or the matching row in the same file. The existing behavior for normal
 CSV mapping errors is unchanged: valid rows may be saved as COMPLETED_WITH_ERRORS.
+Action/identity errors are fatal even when that row also has a mapping error.
+
+`AccountActivityAction` defines the supported CSV actions: Market, Limit, Stop,
+and Stop limit buys/sells; `Dividend (Dividend)`, `Interest on cash`, `Card debit`,
+and `Result adjustment`. The original trimmed action text remains stored in the
+entity. A new broker action, such as a stock split or transfer, must be explicitly
+supported with its effect on holdings before it can be imported.
+
+Existing data is not rewritten. Holding queries return 409 for unsupported
+actions or nonzero trades without an instrument identifier rather than silently
+omitting those rows. Review and correct the original export/history before retrying.
 
 CSV timestamps use strict calendar validation. Both `2026-07-01 13:35:43+00:00`
 and ISO offset timestamps such as `2026-07-01T13:35:43.123456Z` are supported;

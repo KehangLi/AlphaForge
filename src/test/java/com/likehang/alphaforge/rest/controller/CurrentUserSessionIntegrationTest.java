@@ -94,6 +94,25 @@ class CurrentUserSessionIntegrationTest extends AbstractPostgresIntegrationTest 
     }
 
     @Test
+    void invalidTradeImportReturnsActionableErrorAndLeavesNoBatchOrActivities() throws Exception {
+        HttpClient client = newClient();
+        createGuest(client);
+        UUID accountId = createAccount(client);
+        String csv = "Action,Time (UTC),ISIN,Ticker,No. of shares,Total,Currency (Total)\n"
+                + "Interest on cash,2026-10-01 00:00:00+00:00,,,,1,EUR\n"
+                + "Limit buy,2026-10-02 00:00:00+00:00,,,2,300,EUR\n";
+
+        HttpResponse<String> response = uploadCsv(client, accountId, csv);
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Cache-Control")).hasValue("no-store");
+        assertThat(JsonPath.<String>read(response.body(), "$.message"))
+                .contains("CSV row 3", "ISIN/Ticker");
+        assertTotalElements(request(client, "GET", "/api/brokerage-accounts/" + accountId + "/account-activities"), 0);
+        assertTotalElements(request(client, "GET", "/api/brokerage-accounts/" + accountId + "/import-batches"), 0);
+    }
+
+    @Test
     void rejectsUnknownSessionCookie() throws Exception {
         String sessionId = Base64.getEncoder().encodeToString(
                 UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)

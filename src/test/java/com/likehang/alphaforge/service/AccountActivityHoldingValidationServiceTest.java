@@ -77,6 +77,16 @@ class AccountActivityHoldingValidationServiceTest {
                 .hasMessageContaining("row 2");
     }
 
+    @Test
+    void rejectsTradesWithoutAnInstrumentInsteadOfSkippingHoldingValidation() {
+        when(accountActivityRepository.findByBrokerageAccount_Id(brokerageAccountId)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.validateNoNegativeHoldings(brokerageAccountId,
+                List.of(activity("Limit sell", null, " ", "2", "2026-07-02T10:00:00Z", 2))))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("ISIN and ticker").hasMessageContaining("CSV row 2");
+    }
+
     private AccountActivity activity(
             String action,
             String isin,
