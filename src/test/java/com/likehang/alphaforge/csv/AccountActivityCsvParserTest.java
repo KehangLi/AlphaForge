@@ -1,6 +1,7 @@
 package com.likehang.alphaforge.csv;
 
 import com.likehang.alphaforge.exception.UploadTooLargeException;
+import com.likehang.alphaforge.exception.CsvImportException;
 import com.likehang.alphaforge.model.entity.AppUser;
 import com.likehang.alphaforge.model.entity.BrokerageAccount;
 import com.likehang.alphaforge.model.entity.ImportBatch;
@@ -40,6 +41,62 @@ class AccountActivityCsvParserTest {
         String csv = "Action,Time (UTC),Total,Currency (Total),Notes\n"
                 + "Interest on cash,2026-10-01 00:00:00+00:00,1,EUR,\"first line\nsecond line\"\n";
         assertThat(parse(csv, 1).activities()).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Market buy", "Market sell", "Limit buy", "Limit sell", "Stop buy", "Stop sell",
+            "Stop limit buy", "Stop limit sell"})
+    void tradesWithoutEitherIdentifierAbortTheFileInsteadOfBecomingPartialSuccess(String action) {
+        String csv = "Action,Time (UTC),ISIN,Ticker,Name,No. of shares,Total,Currency (Total)\n"
+                + "Interest on cash,2026-10-01 00:00:00+00:00,,,,,1,EUR\n"
+                + action + ",2026-10-02 00:00:00+00:00, , ,NVIDIA,2,300,EUR\n";
+
+        assertThatThrownBy(() -> parse(csv, 10))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("CSV row 3").hasMessageContaining("ISIN/Ticker");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Limit bye", "Limit buy typo", "Limit sell cancelled", "Buy Sell", "Stock split", " "})
+    void unknownOrMissingActionAbortsEvenWhenTheRowAlsoHasAMappingError(String action) {
+        String csv = "Action,Time (UTC),ISIN,Ticker,No. of shares,Total,Currency (Total)\n"
+                + action + ",invalid,US67066G1040,NVDA,2,300,EUR\n";
+
+        assertThatThrownBy(() -> parse(csv, 10))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("CSV row 2").hasMessageContaining("Action");
+    }
+
+    @Test
+    void missingInstrumentAbortsEvenWhenTheTradeAlsoHasAnInvalidTimestamp() {
+        String csv = "Action,Time (UTC),No. of shares,Total,Currency (Total)\n"
+                + "Limit buy,invalid,2,300,EUR\n";
+
+        assertThatThrownBy(() -> parse(csv, 10))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("CSV row 2").hasMessageContaining("ISIN/Ticker");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"US67066G1040,", ", nvda "})
+    void eitherIdentifierIsEnoughAndActionMatchingIgnoresCaseAndOuterWhitespace(String identifiers) {
+        String csv = "Action,Time (UTC),ISIN,Ticker,No. of shares,Total,Currency (Total)\n"
+                + " limit BUY ,2026-10-01 00:00:00+00:00," + identifiers + ",2,300,EUR\n";
+
+        var result = parse(csv, 10);
+        assertThat(result.activities()).hasSize(1);
+        assertThat(result.failedRows()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Interest on cash", "Card debit", "Dividend (Dividend)", "Result adjustment"})
+    void supportedNonTradeActivitiesMayHaveNoInstrumentIdentifiers(String action) {
+        String csv = "Action,Time (UTC),Total,Currency (Total)\n"
+                + action + ",2026-10-01 00:00:00+00:00,1,EUR\n";
+
+        var result = parse(csv, 10);
+        assertThat(result.activities()).hasSize(1);
+        assertThat(result.errors()).isEmpty();
     }
 
     @ParameterizedTest

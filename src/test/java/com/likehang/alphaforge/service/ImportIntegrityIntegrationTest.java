@@ -69,6 +69,33 @@ class ImportIntegrityIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"Limit buy", "Limit sell"})
+    void missingTradeIdentifiersRollBackTheNewBatchAndAllItsValidRows(String action) {
+        upload(accountId, BUY);
+        String invalid = action + ",2026-10-03 10:00:00+00:00, , ,MISSING-ID,1,100,EUR\n";
+
+        assertThatThrownBy(() -> upload(accountId, SELL + invalid))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("CSV row 3").hasMessageContaining("ISIN/Ticker");
+        assertThat(batches.count()).isEqualTo(1);
+        assertThat(activities.findByBrokerageAccount_Id(accountId)).singleElement()
+                .satisfies(activity -> assertThat(activity.getExternalTransactionId()).isEqualTo("BUY-1"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Limit bye", "Limit sell cancelled"})
+    void unsupportedActionsRollBackTheNewBatchAndAllItsValidRows(String action) {
+        upload(accountId, BUY);
+        String invalid = BUY.replace("Limit buy", action).replace("BUY-1", "UNKNOWN");
+
+        assertThatThrownBy(() -> upload(accountId, SELL + invalid))
+                .isInstanceOf(CsvImportException.class)
+                .hasMessageContaining("CSV row 3").hasMessageContaining("unsupported action");
+        assertThat(batches.count()).isEqualTo(1);
+        assertThat(activities.count()).isEqualTo(1);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"2026-02-30 10:00:00+00:00", "2026-02-30T10:00:00Z"})
     void invalidTradeDateIsReportedAndNeverPersistedAsACorrectedDate(String timestamp) {
         String invalidSell = SELL.replace("2026-10-02 10:00:00+00:00", timestamp);
