@@ -24,6 +24,13 @@ and otherwise valid new activities. Errors name the CSV row and the matching
 batch/row, or the matching row in the same file. The existing behavior for normal
 CSV mapping errors is unchanged: valid rows may be saved as COMPLETED_WITH_ERRORS.
 
+CSV timestamps use strict calendar validation. Both `2026-07-01 13:35:43+00:00`
+and ISO offset timestamps such as `2026-07-01T13:35:43.123456Z` are supported;
+an explicit UTC marker or offset is required. Invalid dates such as February 30,
+February 29 in a non-leap year, and 24:00:00 are rejected instead of being
+adjusted. They produce a `Time (UTC)` row error with the original value, and that
+row is not saved. Valid rows still follow the existing partial-import policy.
+
 Economic content uses the UTC instant, action, instrument (ISIN first, then
 ticker, then name), quantities, price, exchange rate, amounts/currencies, taxes,
 fees, and merchant data. Decimal formatting and timezone offsets do not change
