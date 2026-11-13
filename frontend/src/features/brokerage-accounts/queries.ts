@@ -9,6 +9,7 @@ import {
 
 import { getCachedUserId, isCurrentUser } from "@/features/auth/session-cache";
 import { holdingsQueryKeys } from "@/features/holdings/queries";
+import { instrumentQueryKeys } from "@/features/instruments/queries";
 import { realizedTradingQueryKeys } from "@/features/realized-trading/queries";
 
 import {
@@ -109,6 +110,9 @@ export function useDeleteBrokerageAccountMutation() {
       queryClient.removeQueries({
         queryKey: realizedTradingQueryKeys.byAccount(brokerageAccountId),
       });
+      queryClient.removeQueries({
+        queryKey: instrumentQueryKeys.byAccount(brokerageAccountId),
+      });
 
       await queryClient.invalidateQueries({
         queryKey: brokerageAccountQueryKeys.all,
@@ -183,6 +187,9 @@ export function useImportAccountActivitiesMutation() {
         queryClient.invalidateQueries({
           queryKey: realizedTradingQueryKeys.byAccount(result.brokerageAccountId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: instrumentQueryKeys.byAccount(result.brokerageAccountId),
+        }),
       ]);
     },
   });
@@ -217,6 +224,9 @@ export function useDeleteImportBatchMutation() {
         queryClient.invalidateQueries({
           queryKey: realizedTradingQueryKeys.byAccount(variables.brokerageAccountId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: instrumentQueryKeys.byAccount(variables.brokerageAccountId),
+        }),
       ]);
     },
   });
@@ -241,7 +251,7 @@ export function useSaveJournalNoteMutation() {
         queryKey: accountActivityQueryKeys.byAccount(variables.brokerageAccountId),
       });
       await queryClient.invalidateQueries({
-        queryKey: ["instruments", variables.brokerageAccountId],
+        queryKey: instrumentQueryKeys.byAccount(variables.brokerageAccountId),
       });
     },
   });

@@ -6,8 +6,10 @@ import { getInstrumentDetail } from "./api";
 
 export const instrumentQueryKeys = {
   all: ["instruments"] as const,
+  byAccount: (brokerageAccountId: string) =>
+    [...instrumentQueryKeys.all, brokerageAccountId] as const,
   detail: (brokerageAccountId: string, instrumentKey: string, page: number, size: number) =>
-    [...instrumentQueryKeys.all, brokerageAccountId, instrumentKey, page, size] as const,
+    [...instrumentQueryKeys.byAccount(brokerageAccountId), instrumentKey, page, size] as const,
 };
 
 export function useInstrumentDetailQuery({
