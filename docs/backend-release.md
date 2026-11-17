@@ -158,6 +158,17 @@ and Ubuntu Noble. Review future scanner findings and update the relevant image
 or dependencies; the release workflow does not silently ignore HIGH findings.
 See [Ubuntu's fix status](https://ubuntu.com/security/CVE-2026-111497).
 
+The November 13, 2026 scan also found CVE-2026-109518 in `apt` and
+`libapt-pkg6.0t64` version `2.8.3`. The refreshed Java 21 Noble base images contain
+Ubuntu's fixed version `2.8.4ubuntu0.1`. Updating a pinned digest requires a new
+commit and a new workflow run from the updated `main`; rerunning the old commit
+still builds the old base. See [Ubuntu's advisory](https://ubuntu.com/security/CVE-2026-109518).
+
+When a scan blocks a release, download the `backend-image-<run_id>-<attempt>`
+artifact from that run's Summary page. Its `image-scan.json` lists the affected
+packages, installed and fixed versions, CVE identifiers, and severities. An OS
+finding may require updating the Docker base even when Java dependencies are clean.
+
 ## Manual rollback and failed releases
 
 Release and rollback share one concurrency group and do not cancel an active
