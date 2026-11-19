@@ -19,7 +19,7 @@ import java.util.UUID;
 @Table(
         name = "app_user",
         indexes = {
-                @Index(name = "idx_app_user_email", columnList = "email", unique = true) // 给Email加唯一索引 让他查的更快
+                @Index(name = "idx_app_user_email", columnList = "email", unique = true)
         }
 )
 public class AppUser {
@@ -43,7 +43,7 @@ public class AppUser {
     private String displayName;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt; // 时间类型是明确的时间点
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
@@ -62,14 +62,14 @@ public class AppUser {
         this.userType = userType;
     }
 
-    @PrePersist //第一次插入数据库之前执行 --> 因为constructor
+    @PrePersist //execute before first insert into database
     void onCreate() {
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
     }
 
-    @PreUpdate //更新之前执行 --> 因为constructor
+    @PreUpdate //execute before update
     void onUpdate() {
         updatedAt = Instant.now();
     }

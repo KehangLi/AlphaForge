@@ -5,7 +5,6 @@ import com.likehang.alphaforge.model.entity.ImportBatchStatus;
 import java.util.List;
 import java.util.UUID;
 
-// record是只装数据的类
 public record AccountActivityCsvImportResult(
         UUID importBatchId,
         UUID brokerageAccountId,

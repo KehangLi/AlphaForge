@@ -31,9 +31,9 @@ public class BrokerageAccount {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false) //不要先把App User查出来
-    @JoinColumn(name = "user_id", nullable = false) //创建一列user_id
-    private AppUser user; //用来指向 app_user.id 会默认指向id
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private AppUser user;
 
     @Column(name = "broker_name", nullable = false, length = 120)
     private String brokerName;

@@ -147,8 +147,8 @@ Response (200, `Cache-Control: no-store`):
   existing imported values remain intact. Notes live on their activity, so hard
   deletion of its batch/account removes them. Reimport creates new activities
   without restoring old journal text. An editor targeting a deleted ID gets 404.
-- The frontend should render the note as text, not HTML, and refresh account and
-  instrument activity caches after a successful save. UI wiring is a separate ticket.
+- The frontend renders notes as text and refreshes account and instrument activity
+  caches after a successful save. Journal editing is available in both activity views.
 
 ## Scope and consistency
 

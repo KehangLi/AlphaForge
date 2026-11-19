@@ -2,8 +2,7 @@ package com.likehang.alphaforge.csv.dto;
 
 import java.util.Map;
 
-// record 是一个基础类 用来读取每一行
-
+// Raw string values for one CSV record, before type conversion.
 public record AccountActivityCsvRow(
         String action,
         String timeUtc,

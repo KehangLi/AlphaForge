@@ -7,7 +7,7 @@ public class CsvRowMappingException extends IllegalArgumentException {
     private final String reason;
 
     public CsvRowMappingException(int rowNumber, String columnName, String reason) {
-        super("CSV row " + rowNumber + ", column '" + columnName + "': " + reason); //子类继承父类的constructor
+        super("CSV row " + rowNumber + ", column '" + columnName + "': " + reason); // The subclass calls the superclass constructor..
         this.rowNumber = rowNumber;
         this.columnName = columnName;
         this.reason = reason;

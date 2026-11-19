@@ -164,7 +164,7 @@ public class AccountActivityCsvMapper {
         }
     }
 
-    // 这行的字端按照固定顺序拼接成一个字符串
+    // Join raw fields in a stable order for hashing.
     private static String canonicalRawRow(AccountActivityCsvRow row) {
         return String.join(
                 "\u001F",
@@ -199,14 +199,14 @@ public class AccountActivityCsvMapper {
 
 /*
     CSV parser:
-    读文件，把每一行变成 Map
+    read files，transfer each row to Map
 
     CSV DTO:
-    承接这一行原始字符串
+    accept the origin string from this row
 
     Mapper:
-    把字符串转换成正确类型，组装成 Entity
+    transfer string to correct type，built Entity
 
     Repository:
-    把 Entity 存进数据库
+    put Entity into Database
  */

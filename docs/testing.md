@@ -1,5 +1,7 @@
 # Backend tests
 
+[Documentation](README.md) | [Local development](local-development.md)
+
 ## Run the tests
 
 Use Java 21 and a running Docker-compatible container runtime (for example, Docker Desktop):
@@ -62,12 +64,14 @@ New tests that load the application and access PostgreSQL should extend
 `webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT` for real HTTP tests. Each test
 creates its own fixtures after the shared cleanup. Mock-based tests do not need the base class.
 
-The `.github/workflows/ci.yml` workflow runs independent Frontend and Backend jobs
-for pull requests and pushes to `main`, and can also be started manually from GitHub Actions.
+The `.github/workflows/ci.yml` workflow currently runs independent Frontend and
+Backend jobs through manual `workflow_dispatch` in GitHub Actions. Its pull-request
+and push triggers are commented out; checks do not automatically run for every PR.
 The Backend job uses Java 21 and Docker on an Ubuntu runner and runs
 `./mvnw --batch-mode --no-transfer-progress clean verify` to compile, run all tests,
 and package the application. It does not need a separately provisioned PostgreSQL
 service or development/production database credentials.
 
-After the first GitHub Actions run, configure the repository's merge rules to
-require both the `Frontend` and `Backend` checks to pass before merging.
+To make these merge gates, first enable the appropriate automatic triggers,
+then configure repository merge rules to require the `Frontend` and `Backend`
+checks. Ordinary CI requires no production credentials.
