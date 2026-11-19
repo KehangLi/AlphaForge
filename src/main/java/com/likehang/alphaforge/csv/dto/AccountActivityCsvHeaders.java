@@ -2,7 +2,7 @@ package com.likehang.alphaforge.csv.dto;
 
 import java.util.List;
 
-//负责管理列名 csv 表格列名发生改变了 直接这里改就行
+// Column names expected in the brokerage CSV export.
 
 public final class AccountActivityCsvHeaders {
 

@@ -6,5 +6,3 @@ public record CsvImportRowError(
         String message
 ) {
 }
-
-// 不可变 只装数据 字段固定 主要用于传输

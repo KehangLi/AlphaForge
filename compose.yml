@@ -16,10 +16,10 @@ volumes:
   pgdata:
 
 
-# docker compose up -d    启动服务
-# docker compose down     停止并删除container 但是数据还在
-# docker compose start/stop
+# Start services: docker compose up -d
+# Remove containers while preserving the data volume: docker compose down
+# Start or stop existing containers: docker compose start / docker compose stop
 
 
-# 进入数据库 docker compose exec postgres psql -U alphaforgeUser -d alphaforge
-# 清空三个表    退出\q
+# Open psql: docker compose exec postgres psql -U alphaforgeUser -d alphaforge
+# Exit psql with \q.
