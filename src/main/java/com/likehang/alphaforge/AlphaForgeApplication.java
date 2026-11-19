@@ -11,6 +11,3 @@ public class AlphaForgeApplication {
     }
 
 }
-
-//基础启动 ./mvnw spring-boot:run
-//根据不同配置启动  ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
