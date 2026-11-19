@@ -47,9 +47,11 @@ uses the existing `local` profile. Configure allowed frontend origins with
 `CORS_ALLOWED_ORIGINS`. This setup assumes the frontend and API are deployed
 on the same site, as required by the current `SameSite=Lax` cookie policy.
 For deployment variables and secret storage, see
-[production-configuration.md](production-configuration.md). The planned frontend
-uses a single browser-facing domain with `/api` forwarding to the backend; browser
-authentication is verified when that frontend is deployed.
+[production-configuration.md](production-configuration.md). The production frontend
+uses a single browser-facing domain with `/api` forwarding to the backend. Local
+development calls the backend directly with CORS; see the
+[local request walkthrough](local-development.md#call-the-api-with-postman) and
+[architecture](architecture.md#request-and-identity-flow).
 
 ## Account Behavior
 
