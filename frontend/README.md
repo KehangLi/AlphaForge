@@ -1,4 +1,11 @@
-This is the front-end for AlphaForge.
+# AlphaForge frontend
+
+[Project overview](../README.md) | [Documentation](../docs/README.md) | [Architecture](../docs/architecture.md)
+
+The Next.js frontend provides guest/registered entry, account management, CSV
+imports, activity/journal tables, holdings, and realized-result views.
+For database and backend startup, start with the
+[full local development guide](../docs/local-development.md).
 
 ## Local setup
 
@@ -14,6 +21,26 @@ that `node --version` starts with `v24.`.
 
 From this directory, install dependencies with `npm ci`, then run `npm run dev`
 to start the development server.
+
+## Source map
+
+| Location | Purpose |
+| --- | --- |
+| `src/app/layout.tsx`, `src/app/providers.tsx` | Root layout and shared TanStack Query client |
+| `src/app/page.tsx`, `src/app/login`, `src/app/register` | Entry, sign-in, and registration routes |
+| `src/app/app` | Protected account workspace and nested instrument-detail route |
+| `src/features/auth` | Session queries, auth forms/gates, identity changes, and cache isolation |
+| `src/features/brokerage-accounts` | Workspace hook, account/activity/import UI, API functions, and mutation invalidation |
+| `src/features/holdings` | Position queries, status filters, and holdings table |
+| `src/features/instruments` | Single-instrument history and holding/result summaries |
+| `src/features/realized-trading` | Account sale-date filters, currency overview, and contribution table |
+| `src/lib/api/client.ts` | Cookie/CSRF-aware requests and HTTP errors |
+| `src/proxy.ts`, `src/lib/api/proxy-headers.ts`, `next.config.ts` | Production API forwarding and trusted client-IP headers |
+
+Feature `api.ts` files make requests, `queries.ts` defines query hooks/keys and
+cache updates, `types.ts` describes API contracts, and `components` contains the
+UI. Read a route, its feature component/hook, then the relevant query and API
+function to follow a screen's data flow.
 
 ## Authentication UI
 
@@ -49,6 +76,11 @@ the `/api` prefix. Set `BACKEND_ORIGIN` to an HTTPS origin in Vercel before
 building. This keeps the current `Secure`, `HttpOnly`, `SameSite=Lax` session
 cookie usable through one browser-facing domain. API responses opt out of
 browser caching and Vercel's external rewrite caching.
+
+Vercel also requires the server-only `TRUSTED_PROXY_SECRET`, matching the backend.
+The `/api` proxy uses it to authenticate forwarded client-IP metadata for backend
+rate limits; it is not a user token and is not included in browser JavaScript.
+Neither this secret nor `BACKEND_ORIGIN` is needed for the default `next dev` flow.
 
 See [the Vercel deployment guide](../docs/frontend-deployment.md) for project
 settings, Azure origin configuration, preview behavior, and browser verification.
